@@ -232,7 +232,15 @@ async function angemeldet(user){
 async function ladeGrunddaten(){
   const { data: m } = await sb.from('mitarbeiter_uebersicht').select('*').eq('email', ich.email).maybeSingle();
   meinMitarbeiter = m || null;
-  istVerwalter = meinMitarbeiter ? meinMitarbeiter.rolle === 'verwalter' : true;
+
+  if(meinMitarbeiter){
+    istVerwalter = meinMitarbeiter.rolle === 'verwalter';
+  } else {
+    // Ohne eigenen Datensatz nur dann Verwalter, wenn die Tabelle wirklich leer ist
+    // (Ersteinrichtung) – sonst würde die App Rechte vorgaukeln, die die Datenbank verweigert.
+    const { count } = await sb.from('mitarbeiter').select('id', { count:'exact', head:true });
+    istVerwalter = !count;
+  }
 
   document.getElementById('wer-bin-ich').textContent = meinMitarbeiter ? meinMitarbeiter.vollername : ich.email;
   document.querySelectorAll('.nur-verwalter').forEach(el => el.hidden = !istVerwalter);
