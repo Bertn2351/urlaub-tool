@@ -10,95 +10,135 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#f3f5f8; --karte:#ffffff; --text:#1b2430; --muted:#67748b;
-  --akzent:#2563eb; --akzent-dunkel:#1d4ed8; --rand:#e2e6ee;
-  --gruen:#16a34a; --rot:#dc2626; --gelb:#b45309; --gelb-bg:#fef3c7;
-  --gruen-bg:#dcfce7; --rot-bg:#fee2e2;
+  --bg:#eef1f7; --karte:#ffffff; --text:#161a2c; --muted:#5c6478;
+  --akzent:#3350e0; --akzent-dunkel:#283fc0; --akzent-licht:#eaedfd; --rand:#e2e6f0;
+  --gruen:#15803d; --rot:#c0291b; --gelb:#b45309; --gelb-bg:#fef3c7;
+  --gruen-bg:#dcfce7; --rot-bg:#fde3e0;
+  --radius:12px; --schatten:0 1px 2px rgba(20,24,45,.04), 0 8px 24px rgba(20,24,45,.06);
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
-h1,h2,h3{margin:0 0 .5em 0;font-weight:600}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0 0 .5em 0;font-weight:700;letter-spacing:-.01em}
 button{font-family:inherit;cursor:pointer}
-input,select{font-family:inherit;font-size:.95rem;padding:.5em .6em;border:1px solid var(--rand);border-radius:6px;background:#fff;color:var(--text)}
-input:focus,select:focus{outline:2px solid var(--akzent);outline-offset:1px}
-.fehler{color:var(--rot);font-size:.9rem;min-height:1.2em}
+input,select{font-family:inherit;font-size:.95rem;padding:.6em .7em;border:1px solid var(--rand);border-radius:8px;background:#fff;color:var(--text)}
+input:focus,select:focus{outline:none;border-color:var(--akzent);box-shadow:0 0 0 3px var(--akzent-licht)}
+.fehler{color:var(--rot);font-size:.88rem;min-height:1.2em}
 
-#login{min-height:100vh;display:flex;align-items:center;justify-content:center}
-#login-form{background:var(--karte);padding:2.5em 2em;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.08);width:min(340px,90vw);display:flex;flex-direction:column;gap:.9em}
-#login-form button{background:var(--akzent);color:#fff;border:none;border-radius:6px;padding:.7em;font-weight:600}
-#login-form button:hover{background:var(--akzent-dunkel)}
+.logo-marke{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--akzent),var(--akzent-dunkel));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.05rem;flex-shrink:0;box-shadow:0 4px 12px rgba(51,80,224,.3)}
 
-header{display:flex;align-items:center;justify-content:space-between;padding:1em 1.5em;background:var(--karte);border-bottom:1px solid var(--rand)}
-header h1{font-size:1.2rem}
-.kopf-rechts{display:flex;align-items:center;gap:1em;color:var(--muted);font-size:.9rem}
-#abmelden{background:none;border:1px solid var(--rand);border-radius:6px;padding:.4em .9em;color:var(--text)}
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5em}
+#login-karte{background:var(--karte);padding:2.4em 2.2em;border-radius:18px;box-shadow:var(--schatten);width:min(380px,100%)}
+#login-kopf{display:flex;align-items:center;gap:.8em;margin-bottom:1.6em}
+#login-kopf h1{font-size:1.25rem;margin:0}
+#login-kopf p{margin:0;color:var(--muted);font-size:.85rem}
+#rollen-umschalter{display:flex;background:var(--bg);border-radius:10px;padding:.25em;margin-bottom:1.6em}
+#rollen-umschalter button{flex:1;background:none;border:none;padding:.6em;border-radius:8px;color:var(--muted);font-weight:600;font-size:.88rem;transition:all .15s}
+#rollen-umschalter button.rolle-aktiv{background:#fff;color:var(--akzent);box-shadow:0 1px 3px rgba(20,24,45,.1)}
+.login-formular{display:flex;flex-direction:column;gap:.9em}
+.login-formular input{padding:.75em .8em}
+.login-formular button[type=submit]{background:var(--akzent);color:#fff;border:none;border-radius:8px;padding:.8em;font-weight:700;margin-top:.3em;transition:background .15s}
+.login-formular button[type=submit]:hover{background:var(--akzent-dunkel)}
+#login-hinweis-mitarbeiter{color:var(--muted);font-size:.82rem;margin:-.3em 0 0}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:.9em 1.5em;background:var(--karte);border-bottom:1px solid var(--rand);position:sticky;top:0;z-index:10}
+.kopf-links{display:flex;align-items:center;gap:.7em}
+header h1{font-size:1.1rem;margin:0}
+.kopf-rechts{display:flex;align-items:center;gap:1em;color:var(--muted);font-size:.88rem}
+#abmelden{background:none;border:1px solid var(--rand);border-radius:8px;padding:.45em .95em;color:var(--text);font-weight:500}
 #abmelden:hover{background:var(--bg)}
 
-#tabs{display:flex;gap:.3em;padding:0 1.5em;background:var(--karte);border-bottom:1px solid var(--rand);overflow-x:auto}
-#tabs button{background:none;border:none;padding:.9em 1em;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
-#tabs button.tab-aktiv{color:var(--akzent);border-bottom-color:var(--akzent)}
+#tabs{display:flex;gap:.2em;padding:.5em 1.5em;background:var(--karte);border-bottom:1px solid var(--rand);overflow-x:auto}
+#tabs button{background:none;border:none;padding:.65em 1em;color:var(--muted);font-weight:600;font-size:.9rem;border-radius:8px;white-space:nowrap;transition:all .15s}
+#tabs button:hover{background:var(--bg);color:var(--text)}
+#tabs button.tab-aktiv{color:var(--akzent);background:var(--akzent-licht)}
 
-main{padding:1.5em;max-width:1100px;margin:0 auto}
+main{padding:1.8em;max-width:1140px;margin:0 auto}
 .karten-reihe{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1em;margin-bottom:1.5em}
-.karte{background:var(--karte);border-radius:10px;padding:1.2em;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.karte .zahl{font-size:1.8rem;font-weight:700}
-.karte .label{color:var(--muted);font-size:.85rem;margin-top:.2em}
+.karte{background:var(--karte);border-radius:var(--radius);padding:1.3em;box-shadow:var(--schatten)}
+.karte .zahl{font-size:1.9rem;font-weight:800;letter-spacing:-.02em}
+.karte .label{color:var(--muted);font-size:.84rem;margin-top:.25em;font-weight:500}
 
-.block{background:var(--karte);border-radius:10px;padding:1.3em;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:1.5em}
+.block{background:var(--karte);border-radius:var(--radius);padding:1.4em;box-shadow:var(--schatten);margin-bottom:1.5em}
 .block h2{font-size:1.05rem}
 
 table{width:100%;border-collapse:collapse;font-size:.9rem}
-th,td{text-align:left;padding:.6em .5em;border-bottom:1px solid var(--rand)}
-th{color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.02em}
+th,td{text-align:left;padding:.7em .6em;border-bottom:1px solid var(--rand)}
+th{color:var(--muted);font-weight:700;font-size:.76rem;text-transform:uppercase;letter-spacing:.04em}
+tbody tr:hover{background:var(--bg)}
 tr:last-child td{border-bottom:none}
 .tabelle-wrapper{overflow-x:auto}
 
 .formular-reihe{display:flex;flex-wrap:wrap;gap:.7em;align-items:end;margin-bottom:1em}
-.feld{display:flex;flex-direction:column;gap:.3em}
-.feld label{font-size:.8rem;color:var(--muted)}
-.knopf{background:var(--akzent);color:#fff;border:none;border-radius:6px;padding:.55em 1.1em;font-weight:600}
+.feld{display:flex;flex-direction:column;gap:.35em}
+.feld label{font-size:.8rem;color:var(--muted);font-weight:500}
+.knopf{background:var(--akzent);color:#fff;border:none;border-radius:8px;padding:.6em 1.2em;font-weight:600;transition:background .15s}
 .knopf:hover{background:var(--akzent-dunkel)}
 .knopf.sekundaer{background:none;border:1px solid var(--rand);color:var(--text)}
 .knopf.sekundaer:hover{background:var(--bg)}
 .knopf.gefahr{background:var(--rot)}
-.knopf.gefahr:hover{background:#b91c1c}
-.knopf.klein{padding:.35em .7em;font-size:.82rem}
+.knopf.gefahr:hover{background:#9f2115}
+.knopf.klein{padding:.4em .75em;font-size:.82rem}
 
-.badge{display:inline-block;padding:.2em .6em;border-radius:999px;font-size:.78rem;font-weight:600}
+.badge{display:inline-block;padding:.25em .65em;border-radius:999px;font-size:.76rem;font-weight:700}
 .status-offen{background:var(--gelb-bg);color:var(--gelb)}
 .status-genehmigt{background:var(--gruen-bg);color:var(--gruen)}
 .status-abgelehnt{background:var(--rot-bg);color:var(--rot)}
 
-.umschalter{display:flex;gap:.4em;margin-bottom:1em}
-.umschalter button{background:none;border:1px solid var(--rand);padding:.4em .9em;border-radius:6px;color:var(--muted);font-size:.85rem}
-.umschalter button.aktiv{background:var(--akzent);color:#fff;border-color:var(--akzent)}
+.umschalter{display:flex;gap:.3em;margin-bottom:1em;background:var(--bg);display:inline-flex;padding:.25em;border-radius:9px}
+.umschalter button{background:none;border:none;padding:.45em 1em;border-radius:7px;color:var(--muted);font-size:.85rem;font-weight:600}
+.umschalter button.aktiv{background:#fff;color:var(--akzent);box-shadow:0 1px 3px rgba(20,24,45,.1)}
 
-.hinweis{background:var(--gelb-bg);color:var(--gelb);padding:.8em 1em;border-radius:8px;font-size:.9rem;margin-bottom:1.5em}
+.hinweis{background:var(--gelb-bg);color:var(--gelb);padding:.85em 1.1em;border-radius:10px;font-size:.9rem;margin-bottom:1.5em;font-weight:500}
 
-#modal-hintergrund{position:fixed;inset:0;background:rgba(15,20,30,.4);display:flex;align-items:center;justify-content:center;padding:1em;z-index:50}
-#modal{background:#fff;border-radius:12px;padding:1.6em;width:min(420px,100%);max-height:90vh;overflow:auto}
+#modal-hintergrund{position:fixed;inset:0;background:rgba(15,20,30,.45);display:flex;align-items:center;justify-content:center;padding:1em;z-index:50}
+#modal{background:#fff;border-radius:16px;padding:1.8em;width:min(440px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 #modal .formular-reihe{flex-direction:column;align-items:stretch}
 #modal .feld{width:100%}
 #modal .feld input,#modal .feld select{width:100%}
 
 [hidden]{display:none!important}
+@media(max-width:640px){ main{padding:1em} header{padding:.8em 1em} #tabs{padding:.4em 1em} }
 </style>
 </head>
 <body>
 
 <div id="login">
-  <form id="login-form">
-    <h1>Urlaub Tool</h1>
-    <input id="login-email" type="email" placeholder="E-Mail" autocomplete="username" required>
-    <input id="login-pass" type="password" placeholder="Passwort" autocomplete="current-password" required>
-    <button type="submit">Anmelden</button>
-    <p class="fehler" id="login-fehler"></p>
-  </form>
+  <div id="login-karte">
+    <div id="login-kopf">
+      <div class="logo-marke">UT</div>
+      <div>
+        <h1>Urlaub Tool</h1>
+        <p>Urlaubs- &amp; Abwesenheitsverwaltung</p>
+      </div>
+    </div>
+    <div id="rollen-umschalter">
+      <button type="button" data-rolle="mitarbeiter" class="rolle-aktiv">Mitarbeiter</button>
+      <button type="button" data-rolle="verwalter">Verwalter</button>
+    </div>
+
+    <form id="login-form-mitarbeiter" class="login-formular">
+      <input id="login-dienstnummer" type="text" inputmode="numeric" placeholder="Dienstnummer" autocomplete="username" required>
+      <input id="login-geburtsdatum" type="date" placeholder="Geburtsdatum" required>
+      <p id="login-hinweis-mitarbeiter">Dein Code: Dienstnummer + Geburtsdatum, beides steht auf deinem Einstellungszettel.</p>
+      <button type="submit">Anmelden</button>
+      <p class="fehler" id="login-fehler-mitarbeiter"></p>
+    </form>
+
+    <form id="login-form-verwalter" class="login-formular" hidden>
+      <input id="login-email" type="email" placeholder="E-Mail" autocomplete="username">
+      <input id="login-pass" type="password" placeholder="Passwort" autocomplete="current-password">
+      <button type="submit">Anmelden</button>
+      <p class="fehler" id="login-fehler-verwalter"></p>
+    </form>
+  </div>
 </div>
 
 <div id="app" hidden>
   <header>
-    <h1>Urlaub Tool</h1>
+    <div class="kopf-links">
+      <div class="logo-marke">UT</div>
+      <h1>Urlaub Tool</h1>
+    </div>
     <div class="kopf-rechts">
       <span id="wer-bin-ich"></span>
       <button id="abmelden">Abmelden</button>
@@ -374,20 +414,22 @@ async function renderMitarbeiter(){
     <div class="block">
       <h2>Neuen Mitarbeiter anlegen</h2>
       <form id="neuer-mitarbeiter-form" class="formular-reihe">
-        <div class="feld"><label>E-Mail (Login)</label><input id="nm-email" type="email" required></div>
+        <div class="feld"><label>Rolle</label>
+          <select id="nm-rolle"><option value="mitarbeiter">Mitarbeiter</option><option value="verwalter">Verwalter</option></select>
+        </div>
+        <div class="feld" id="nm-feld-dienstnummer"><label>Dienstnummer</label><input id="nm-dienstnummer" inputmode="numeric"></div>
+        <div class="feld" id="nm-feld-geburtsdatum"><label>Geburtsdatum</label><input id="nm-geburtsdatum" type="date"></div>
+        <div class="feld" id="nm-feld-email" hidden><label>E-Mail (Login)</label><input id="nm-email" type="email"></div>
         <div class="feld"><label>Vorname</label><input id="nm-vorname" required></div>
         <div class="feld"><label>Nachname</label><input id="nm-nachname" required></div>
         <div class="feld"><label>Abteilung</label>
           <select id="nm-abteilung">${abteilungenListe.map(a=>`<option>${a}</option>`).join('')}</select>
         </div>
         <div class="feld"><label>Eintrittsdatum</label><input id="nm-eintritt" type="date" required></div>
-        <div class="feld"><label>Rolle</label>
-          <select id="nm-rolle"><option value="mitarbeiter">Mitarbeiter</option><option value="verwalter">Verwalter</option></select>
-        </div>
         <button class="knopf" type="submit">Anlegen</button>
       </form>
       <p class="fehler" id="nm-fehler"></p>
-      <p style="color:var(--muted);font-size:.85rem">Wichtig: Für diese E-Mail-Adresse muss in Supabase unter Authentication → Users ein Zugang mit Passwort angelegt sein.</p>
+      <p id="nm-hinweis" style="color:var(--muted);font-size:.85rem">Dienstnummer + Geburtsdatum werden automatisch der Login-Code des Mitarbeiters.</p>
     </div>
     <div class="block">
       <h2>Mehrere Mitarbeiter per Datei importieren</h2>
@@ -405,6 +447,8 @@ async function renderMitarbeiter(){
       <div id="mitarbeiter-liste"></div>
     </div>`;
   document.getElementById('neuer-mitarbeiter-form').addEventListener('submit', neuerMitarbeiterAbsenden);
+  document.getElementById('nm-rolle').addEventListener('change', nmFelderAnpassen);
+  nmFelderAnpassen();
   el.querySelectorAll('.umschalter button').forEach(b=>b.addEventListener('click', ()=>{ nurAktiveMitarbeiter = b.dataset.f==='aktiv'; renderMitarbeiter(); }));
   document.getElementById('import-datei').addEventListener('change', importDateiAusgewaehlt);
   document.getElementById('vorlage-link').addEventListener('click', (e)=>{ e.preventDefault(); importVorlageHerunterladen(); });
@@ -544,22 +588,47 @@ async function ladeMitarbeiterListe(){
     </tr>`).join('')}</tbody></table></div>`;
 }
 
+function nmFelderAnpassen(){
+  const mitarbeiterRolle = document.getElementById('nm-rolle').value === 'mitarbeiter';
+  document.getElementById('nm-feld-dienstnummer').hidden = !mitarbeiterRolle;
+  document.getElementById('nm-feld-geburtsdatum').hidden = !mitarbeiterRolle;
+  document.getElementById('nm-feld-email').hidden = mitarbeiterRolle;
+  document.getElementById('nm-hinweis').textContent = mitarbeiterRolle
+    ? 'Dienstnummer + Geburtsdatum werden automatisch der Login-Code des Mitarbeiters.'
+    : 'Für diese E-Mail-Adresse muss in Supabase unter Authentication → Users ein Zugang mit Passwort angelegt sein.';
+}
+
 async function neuerMitarbeiterAbsenden(e){
   e.preventDefault();
-  const payload = {
-    email: document.getElementById('nm-email').value.trim(),
-    vorname: document.getElementById('nm-vorname').value.trim(),
-    nachname: document.getElementById('nm-nachname').value.trim(),
-    abteilung: document.getElementById('nm-abteilung').value,
-    eintrittsdatum: document.getElementById('nm-eintritt').value,
-    rolle: document.getElementById('nm-rolle').value
-  };
   const fehlerEl = document.getElementById('nm-fehler');
   fehlerEl.textContent = '';
-  const { error } = await sb.from('mitarbeiter').insert(payload);
-  if(error){ fehlerEl.textContent = error.message; return; }
+  const rolle = document.getElementById('nm-rolle').value;
+  const vorname = document.getElementById('nm-vorname').value.trim();
+  const nachname = document.getElementById('nm-nachname').value.trim();
+  const abteilung = document.getElementById('nm-abteilung').value;
+  const eintrittsdatum = document.getElementById('nm-eintritt').value;
+
+  if(rolle === 'mitarbeiter'){
+    const dienstnummer = document.getElementById('nm-dienstnummer').value.trim();
+    const geburtsdatum = document.getElementById('nm-geburtsdatum').value;
+    if(!dienstnummer || !geburtsdatum){ fehlerEl.textContent = 'Dienstnummer und Geburtsdatum sind nötig.'; return; }
+    const { data: { session } } = await sb.auth.getSession();
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/mitarbeiter-anlegen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ dienstnummer, geburtsdatum, vorname, nachname, abteilung, eintrittsdatum, rolle })
+    });
+    const ergebnis = await resp.json();
+    if(!resp.ok || ergebnis.error){ fehlerEl.textContent = ergebnis.error || 'Anlegen fehlgeschlagen'; return; }
+  } else {
+    const email = document.getElementById('nm-email').value.trim();
+    if(!email){ fehlerEl.textContent = 'E-Mail ist nötig.'; return; }
+    const { error } = await sb.from('mitarbeiter').insert({ email, vorname, nachname, abteilung, eintrittsdatum, rolle });
+    if(error){ fehlerEl.textContent = error.message; return; }
+  }
+
   document.getElementById('neuer-mitarbeiter-form').reset();
-  if(payload.email === ich.email) await ladeGrunddaten();
+  nmFelderAnpassen();
   await ladeMitarbeiterListe();
 }
 
@@ -793,11 +862,32 @@ async function dokumentUebernehmen(e){
   document.getElementById('dok-datei').value = '';
 }
 
-document.getElementById('login-form').addEventListener('submit', async (e)=>{
+document.querySelectorAll('#rollen-umschalter button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#rollen-umschalter button').forEach(x=>x.classList.toggle('rolle-aktiv', x===b));
+    document.getElementById('login-form-mitarbeiter').hidden = b.dataset.rolle !== 'mitarbeiter';
+    document.getElementById('login-form-verwalter').hidden = b.dataset.rolle !== 'verwalter';
+  });
+});
+
+document.getElementById('login-form-mitarbeiter').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const dienstnummer = document.getElementById('login-dienstnummer').value.trim();
+  const geburtsdatum = document.getElementById('login-geburtsdatum').value;
+  const fehlerEl = document.getElementById('login-fehler-mitarbeiter');
+  fehlerEl.textContent = '';
+  const email = `ma${dienstnummer}@dienst.intern`;
+  const password = geburtsdatum.replaceAll('-','');
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){ fehlerEl.textContent = 'Dienstnummer oder Geburtsdatum stimmt nicht.'; return; }
+  await angemeldet(data.user);
+});
+
+document.getElementById('login-form-verwalter').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-pass').value;
-  const fehlerEl = document.getElementById('login-fehler');
+  const fehlerEl = document.getElementById('login-fehler-verwalter');
   fehlerEl.textContent = '';
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if(error){ fehlerEl.textContent = 'Anmeldung fehlgeschlagen: ' + error.message; return; }
