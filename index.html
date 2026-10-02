@@ -117,9 +117,8 @@ tr:last-child td{border-bottom:none}
     </div>
 
     <form id="login-form-mitarbeiter" class="login-formular">
-      <input id="login-dienstnummer" type="text" inputmode="numeric" placeholder="Dienstnummer" autocomplete="username" required>
-      <input id="login-geburtsdatum" type="date" placeholder="Geburtsdatum" required>
-      <p id="login-hinweis-mitarbeiter">Dein Code: Dienstnummer + Geburtsdatum, beides steht auf deinem Einstellungszettel.</p>
+      <input id="login-code" type="text" inputmode="numeric" placeholder="Code" autocomplete="username" required>
+      <p id="login-hinweis-mitarbeiter">Dein Code: Dienstnummer + Geburtstag + Geburtsmonat + Geburtsjahr (2-stellig), ohne Leerzeichen. Beispiel: Dienstnummer 126, geboren 02.02.2006 → 126020206.</p>
       <button type="submit">Anmelden</button>
       <p class="fehler" id="login-fehler-mitarbeiter"></p>
     </form>
@@ -872,14 +871,15 @@ document.querySelectorAll('#rollen-umschalter button').forEach(b=>{
 
 document.getElementById('login-form-mitarbeiter').addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const dienstnummer = document.getElementById('login-dienstnummer').value.trim();
-  const geburtsdatum = document.getElementById('login-geburtsdatum').value;
   const fehlerEl = document.getElementById('login-fehler-mitarbeiter');
   fehlerEl.textContent = '';
+  const code = document.getElementById('login-code').value.replace(/\D/g,'');
+  if(code.length <= 6){ fehlerEl.textContent = 'Code ist zu kurz.'; return; }
+  const dienstnummer = code.slice(0, -6);
+  const password = code.slice(-6);
   const email = `ma${dienstnummer}@dienst.intern`;
-  const password = geburtsdatum.replaceAll('-','');
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if(error){ fehlerEl.textContent = 'Dienstnummer oder Geburtsdatum stimmt nicht.'; return; }
+  if(error){ fehlerEl.textContent = 'Code stimmt nicht.'; return; }
   await angemeldet(data.user);
 });
 
