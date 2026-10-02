@@ -5,42 +5,45 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Urlaub Tool</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#eef1f7; --karte:#ffffff; --text:#161a2c; --muted:#5c6478;
+  --bg:#eef1f7; --karte:#fff; --text:#161a2c; --muted:#5c6478;
   --akzent:#3350e0; --akzent-dunkel:#283fc0; --akzent-licht:#eaedfd; --rand:#e2e6f0;
-  --gruen:#15803d; --rot:#c0291b; --gelb:#b45309; --gelb-bg:#fef3c7;
-  --gruen-bg:#dcfce7; --rot-bg:#fde3e0;
+  --gruen:#15803d; --gruen-bg:#dcfce7; --rot:#c0291b; --rot-bg:#fde3e0;
+  --gelb:#b45309; --gelb-bg:#fef3c7; --blau-bg:#dbeafe; --blau:#1d4ed8;
   --radius:12px; --schatten:0 1px 2px rgba(20,24,45,.04), 0 8px 24px rgba(20,24,45,.06);
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
 h1,h2,h3{margin:0 0 .5em 0;font-weight:700;letter-spacing:-.01em}
 button{font-family:inherit;cursor:pointer}
-input,select{font-family:inherit;font-size:.95rem;padding:.6em .7em;border:1px solid var(--rand);border-radius:8px;background:#fff;color:var(--text)}
-input:focus,select:focus{outline:none;border-color:var(--akzent);box-shadow:0 0 0 3px var(--akzent-licht)}
+input,select,textarea{font-family:inherit;font-size:.95rem;padding:.6em .7em;border:1px solid var(--rand);border-radius:8px;background:#fff;color:var(--text)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--akzent);box-shadow:0 0 0 3px var(--akzent-licht)}
+a{color:var(--akzent)}
 .fehler{color:var(--rot);font-size:.88rem;min-height:1.2em}
+.erfolg{background:var(--gruen-bg);color:var(--gruen);padding:.85em 1.1em;border-radius:10px;font-size:.9rem;font-weight:500;margin-bottom:1em}
+.leer{color:var(--muted);font-size:.9rem;padding:.5em 0}
 
-.logo-marke{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--akzent),var(--akzent-dunkel));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.05rem;flex-shrink:0;box-shadow:0 4px 12px rgba(51,80,224,.3)}
+.logo-marke{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--akzent),var(--akzent-dunkel));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;box-shadow:0 4px 12px rgba(51,80,224,.3)}
 
 #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5em}
-#login-karte{background:var(--karte);padding:2.4em 2.2em;border-radius:18px;box-shadow:var(--schatten);width:min(380px,100%)}
+#login-karte{background:var(--karte);padding:2.4em 2.2em;border-radius:18px;box-shadow:var(--schatten);width:min(390px,100%)}
 #login-kopf{display:flex;align-items:center;gap:.8em;margin-bottom:1.6em}
 #login-kopf h1{font-size:1.25rem;margin:0}
 #login-kopf p{margin:0;color:var(--muted);font-size:.85rem}
 #rollen-umschalter{display:flex;background:var(--bg);border-radius:10px;padding:.25em;margin-bottom:1.6em}
-#rollen-umschalter button{flex:1;background:none;border:none;padding:.6em;border-radius:8px;color:var(--muted);font-weight:600;font-size:.88rem;transition:all .15s}
+#rollen-umschalter button{flex:1;background:none;border:none;padding:.6em;border-radius:8px;color:var(--muted);font-weight:600;font-size:.88rem}
 #rollen-umschalter button.rolle-aktiv{background:#fff;color:var(--akzent);box-shadow:0 1px 3px rgba(20,24,45,.1)}
 .login-formular{display:flex;flex-direction:column;gap:.9em}
 .login-formular input{padding:.75em .8em}
-.login-formular button[type=submit]{background:var(--akzent);color:#fff;border:none;border-radius:8px;padding:.8em;font-weight:700;margin-top:.3em;transition:background .15s}
+.login-formular button[type=submit]{background:var(--akzent);color:#fff;border:none;border-radius:8px;padding:.8em;font-weight:700;margin-top:.3em}
 .login-formular button[type=submit]:hover{background:var(--akzent-dunkel)}
-#login-hinweis-mitarbeiter{color:var(--muted);font-size:.82rem;margin:-.3em 0 0}
+.login-hinweis{color:var(--muted);font-size:.82rem;margin:-.3em 0 0;line-height:1.5}
 
-header{display:flex;align-items:center;justify-content:space-between;padding:.9em 1.5em;background:var(--karte);border-bottom:1px solid var(--rand);position:sticky;top:0;z-index:10}
+header{display:flex;align-items:center;justify-content:space-between;gap:1em;padding:.9em 1.5em;background:var(--karte);border-bottom:1px solid var(--rand);position:sticky;top:0;z-index:10}
 .kopf-links{display:flex;align-items:center;gap:.7em}
 header h1{font-size:1.1rem;margin:0}
 .kopf-rechts{display:flex;align-items:center;gap:1em;color:var(--muted);font-size:.88rem}
@@ -48,31 +51,40 @@ header h1{font-size:1.1rem;margin:0}
 #abmelden:hover{background:var(--bg)}
 
 #tabs{display:flex;gap:.2em;padding:.5em 1.5em;background:var(--karte);border-bottom:1px solid var(--rand);overflow-x:auto}
-#tabs button{background:none;border:none;padding:.65em 1em;color:var(--muted);font-weight:600;font-size:.9rem;border-radius:8px;white-space:nowrap;transition:all .15s}
+#tabs button{background:none;border:none;padding:.65em 1em;color:var(--muted);font-weight:600;font-size:.9rem;border-radius:8px;white-space:nowrap}
 #tabs button:hover{background:var(--bg);color:var(--text)}
 #tabs button.tab-aktiv{color:var(--akzent);background:var(--akzent-licht)}
 
-main{padding:1.8em;max-width:1140px;margin:0 auto}
-.karten-reihe{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1em;margin-bottom:1.5em}
+main{padding:1.8em;max-width:1240px;margin:0 auto}
+.karten-reihe{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:1em;margin-bottom:1.5em}
 .karte{background:var(--karte);border-radius:var(--radius);padding:1.3em;box-shadow:var(--schatten)}
 .karte .zahl{font-size:1.9rem;font-weight:800;letter-spacing:-.02em}
 .karte .label{color:var(--muted);font-size:.84rem;margin-top:.25em;font-weight:500}
 
 .block{background:var(--karte);border-radius:var(--radius);padding:1.4em;box-shadow:var(--schatten);margin-bottom:1.5em}
 .block h2{font-size:1.05rem}
+.block-kopf{display:flex;align-items:center;justify-content:space-between;gap:1em;flex-wrap:wrap;margin-bottom:1em}
+.block-kopf h2{margin:0}
 
 table{width:100%;border-collapse:collapse;font-size:.9rem}
-th,td{text-align:left;padding:.7em .6em;border-bottom:1px solid var(--rand)}
+th,td{text-align:left;padding:.7em .6em;border-bottom:1px solid var(--rand);white-space:nowrap}
 th{color:var(--muted);font-weight:700;font-size:.76rem;text-transform:uppercase;letter-spacing:.04em}
 tbody tr:hover{background:var(--bg)}
 tr:last-child td{border-bottom:none}
 .tabelle-wrapper{overflow-x:auto}
+td.zahl-spalte,th.zahl-spalte{text-align:right}
 
+.formular-gitter{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.9em;margin-bottom:1em}
 .formular-reihe{display:flex;flex-wrap:wrap;gap:.7em;align-items:end;margin-bottom:1em}
 .feld{display:flex;flex-direction:column;gap:.35em}
 .feld label{font-size:.8rem;color:var(--muted);font-weight:500}
-.knopf{background:var(--akzent);color:#fff;border:none;border-radius:8px;padding:.6em 1.2em;font-weight:600;transition:background .15s}
+.feld-breit{grid-column:1/-1}
+fieldset{border:none;border-top:1px solid var(--rand);margin:1.4em 0 0;padding:1.2em 0 0}
+legend{font-size:.76rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:0}
+
+.knopf{background:var(--akzent);color:#fff;border:none;border-radius:8px;padding:.6em 1.2em;font-weight:600}
 .knopf:hover{background:var(--akzent-dunkel)}
+.knopf:disabled{opacity:.6;cursor:default}
 .knopf.sekundaer{background:none;border:1px solid var(--rand);color:var(--text)}
 .knopf.sekundaer:hover{background:var(--bg)}
 .knopf.gefahr{background:var(--rot)}
@@ -83,18 +95,34 @@ tr:last-child td{border-bottom:none}
 .status-offen{background:var(--gelb-bg);color:var(--gelb)}
 .status-genehmigt{background:var(--gruen-bg);color:var(--gruen)}
 .status-abgelehnt{background:var(--rot-bg);color:var(--rot)}
+.art-Urlaub{background:var(--blau-bg);color:var(--blau)}
+.art-Krank{background:var(--rot-bg);color:var(--rot)}
+.art-Sonstige{background:var(--gelb-bg);color:var(--gelb)}
 
-.umschalter{display:flex;gap:.3em;margin-bottom:1em;background:var(--bg);display:inline-flex;padding:.25em;border-radius:9px}
+.umschalter{display:inline-flex;gap:.3em;background:var(--bg);padding:.25em;border-radius:9px}
 .umschalter button{background:none;border:none;padding:.45em 1em;border-radius:7px;color:var(--muted);font-size:.85rem;font-weight:600}
 .umschalter button.aktiv{background:#fff;color:var(--akzent);box-shadow:0 1px 3px rgba(20,24,45,.1)}
 
 .hinweis{background:var(--gelb-bg);color:var(--gelb);padding:.85em 1.1em;border-radius:10px;font-size:.9rem;margin-bottom:1.5em;font-weight:500}
 
+.kalender{border-collapse:separate;border-spacing:1px;font-size:.78rem}
+.kalender th,.kalender td{padding:0;border:none;white-space:nowrap}
+.kalender th.tag-kopf{width:22px;text-align:center;font-size:.68rem;color:var(--muted);font-weight:600}
+.kalender th.tag-kopf.we{color:var(--rot)}
+.kalender td.name-spalte,.kalender th.name-spalte{text-align:left;padding-right:.8em;font-weight:500;position:sticky;left:0;background:var(--karte);min-width:150px}
+.kalender td.zelle{width:22px;height:24px;border-radius:3px;background:var(--bg)}
+.kalender td.zelle.we{background:#e3e7f0}
+.kalender td.zelle.feiertag{background:#d6dbe8}
+.kalender td.zelle.Urlaub{background:#6f8ef5}
+.kalender td.zelle.Krank{background:#e0776b}
+.kalender td.zelle.Sonstige{background:#e0b062}
+.kalender td.zelle.offen{opacity:.45}
+.legende{display:flex;gap:1.2em;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-top:1em}
+.legende span{display:flex;align-items:center;gap:.4em}
+.legende i{width:14px;height:14px;border-radius:3px;display:inline-block}
+
 #modal-hintergrund{position:fixed;inset:0;background:rgba(15,20,30,.45);display:flex;align-items:center;justify-content:center;padding:1em;z-index:50}
-#modal{background:#fff;border-radius:16px;padding:1.8em;width:min(440px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-#modal .formular-reihe{flex-direction:column;align-items:stretch}
-#modal .feld{width:100%}
-#modal .feld input,#modal .feld select{width:100%}
+#modal{background:#fff;border-radius:16px;padding:1.8em;width:min(560px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 
 [hidden]{display:none!important}
 @media(max-width:640px){ main{padding:1em} header{padding:.8em 1em} #tabs{padding:.4em 1em} }
@@ -117,8 +145,8 @@ tr:last-child td{border-bottom:none}
     </div>
 
     <form id="login-form-mitarbeiter" class="login-formular">
-      <input id="login-code" type="text" inputmode="numeric" placeholder="Code" autocomplete="username" required>
-      <p id="login-hinweis-mitarbeiter">Dein Code: Dienstnummer + Geburtstag + Geburtsmonat + Geburtsjahr (2-stellig), ohne Leerzeichen. Beispiel: Dienstnummer 126, geboren 02.02.2006 → 126020206.</p>
+      <input id="login-code" type="text" inputmode="numeric" placeholder="Code" autocomplete="off" required>
+      <p class="login-hinweis">Dein Code: Dienstnummer, dann Geburtstag, Geburtsmonat und Geburtsjahr zweistellig – ohne Leerzeichen.<br>Beispiel: Dienstnummer 126, geboren am 02.02.2006 → <strong>126020206</strong></p>
       <button type="submit">Anmelden</button>
       <p class="fehler" id="login-fehler-mitarbeiter"></p>
     </form>
@@ -143,62 +171,74 @@ tr:last-child td{border-bottom:none}
       <button id="abmelden">Abmelden</button>
     </div>
   </header>
-  <nav id="tabs">
-    <button data-tab="start" class="tab-aktiv">Start</button>
-    <button data-tab="antraege">Anträge</button>
-    <button data-tab="mitarbeiter" class="nur-verwalter" hidden>Mitarbeiter</button>
-    <button data-tab="feiertage" class="nur-verwalter" hidden>Feiertage</button>
-    <button data-tab="dokument" class="nur-verwalter" hidden>Dokument</button>
-  </nav>
-  <main>
-    <section id="tab-start"></section>
-    <section id="tab-antraege" hidden></section>
-    <section id="tab-mitarbeiter" hidden></section>
-    <section id="tab-feiertage" hidden></section>
-    <section id="tab-dokument" hidden></section>
-  </main>
+  <nav id="tabs"></nav>
+  <main id="inhalt"></main>
 </div>
 
-<div id="modal-hintergrund" hidden>
-  <div id="modal"></div>
-</div>
+<div id="modal-hintergrund" hidden><div id="modal"></div></div>
 
 <script>
 const SUPABASE_URL = "https://sggfkahjuzhyietgoeqh.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_zsH7fXxMPozvmfVUZyDyqg_kyd0LFqM";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let ich = null;
-let meinMitarbeiter = null;
-let istVerwalter = false;
-let feiertageSet = new Set();
-let abteilungenListe = [];
-let nurAktiveMitarbeiter = true;
-let antraegeFilter = 'offen';
+const ARTEN = ['Urlaub','Krank','Sonstige'];
+const MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
+let ich = null;              // Supabase-Auth-Benutzer
+let meinKonto = null;        // Zeile aus mein_konto
+let istVerwalter = false;
+let feiertage = new Map();   // ISO-Datum -> Bezeichnung
+let abteilungen = [];
+let aktiverTab = 'start';
+
+/* ===================== Helfer ===================== */
+
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function formatDatum(iso){
-  if(!iso) return '';
-  const [j,m,t] = iso.split('-');
+  if(!iso) return '—';
+  const [j,m,t] = String(iso).slice(0,10).split('-');
   return `${t}.${m}.${j}`;
 }
-function formatZahl(n){
-  return Number(n).toLocaleString('de-AT',{maximumFractionDigits:1});
+function formatZahl(n, stellen=1){
+  return Number(n ?? 0).toLocaleString('de-AT',{ maximumFractionDigits: stellen });
 }
-function werktageZaehlen(vonStr, bisStr){
-  const von = new Date(vonStr+'T00:00:00Z');
-  const bis = new Date(bisStr+'T00:00:00Z');
-  if(isNaN(von)||isNaN(bis)||bis<von) return 0;
-  let n=0;
+function heuteIso(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function parseDatumFlex(wert){
+  if(wert === null || wert === undefined || wert === '') return null;
+  if(wert instanceof Date && !isNaN(wert)){
+    return `${wert.getFullYear()}-${String(wert.getMonth()+1).padStart(2,'0')}-${String(wert.getDate()).padStart(2,'0')}`;
+  }
+  const s = String(wert).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[.,/](\d{1,2})[.,/](\d{2,4})$/);
+  if(m){
+    let [,t,mo,j] = m;
+    if(j.length === 2) j = '20'+j;
+    return `${j.padStart(4,'0')}-${mo.padStart(2,'0')}-${t.padStart(2,'0')}`;
+  }
+  return null;
+}
+function werktageZaehlen(vonIso, bisIso){
+  const von = new Date(vonIso+'T00:00:00Z');
+  const bis = new Date(bisIso+'T00:00:00Z');
+  if(isNaN(von) || isNaN(bis) || bis < von) return 0;
+  let n = 0;
   const d = new Date(von);
-  while(d<=bis){
+  while(d <= bis){
     const tag = d.getUTCDay();
     const iso = d.toISOString().slice(0,10);
-    if(tag!==0 && tag!==6 && !feiertageSet.has(iso)) n++;
+    if(tag !== 0 && tag !== 6 && !feiertage.has(iso)) n++;
     d.setUTCDate(d.getUTCDate()+1);
   }
   return n;
 }
-
 function zeigeModal(html){
   document.getElementById('modal').innerHTML = html;
   document.getElementById('modal-hintergrund').hidden = false;
@@ -207,263 +247,724 @@ function schliesseModal(){
   document.getElementById('modal-hintergrund').hidden = true;
   document.getElementById('modal').innerHTML = '';
 }
-document.getElementById('modal-hintergrund').addEventListener('click', e=>{
-  if(e.target.id==='modal-hintergrund') schliesseModal();
+document.getElementById('modal-hintergrund').addEventListener('click', e => {
+  if(e.target.id === 'modal-hintergrund') schliesseModal();
+});
+function $(id){ return document.getElementById(id); }
+
+/* ===================== Anmeldung ===================== */
+
+document.querySelectorAll('#rollen-umschalter button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#rollen-umschalter button').forEach(x => x.classList.toggle('rolle-aktiv', x === b));
+    $('login-form-mitarbeiter').hidden = b.dataset.rolle !== 'mitarbeiter';
+    $('login-form-verwalter').hidden = b.dataset.rolle !== 'verwalter';
+  });
+});
+
+$('login-form-mitarbeiter').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fehler = $('login-fehler-mitarbeiter');
+  fehler.textContent = '';
+  const code = $('login-code').value.replace(/\D/g,'');
+  if(code.length <= 6){ fehler.textContent = 'Der Code ist zu kurz.'; return; }
+  const dienstnummer = code.slice(0,-6);
+  const passwort = code.slice(-6);
+  const { data, error } = await sb.auth.signInWithPassword({ email: `ma${dienstnummer}@dienst.intern`, password: passwort });
+  if(error){ fehler.textContent = 'Der Code stimmt nicht.'; return; }
+  await angemeldet(data.user);
+});
+
+$('login-form-verwalter').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fehler = $('login-fehler-verwalter');
+  fehler.textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: $('login-email').value.trim(), password: $('login-pass').value
+  });
+  if(error){ fehler.textContent = 'Anmeldung fehlgeschlagen: ' + error.message; return; }
+  await angemeldet(data.user);
+});
+
+$('abmelden').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  ich = null; meinKonto = null; istVerwalter = false;
+  $('app').hidden = true;
+  $('login').hidden = false;
+  $('login-code').value = ''; $('login-email').value = ''; $('login-pass').value = '';
 });
 
 async function init(){
   const { data:{ session } } = await sb.auth.getSession();
-  if(session) await angemeldet(session.user); else zeigeLogin();
-}
-
-function zeigeLogin(){
-  document.getElementById('app').hidden = true;
-  document.getElementById('login').hidden = false;
+  if(session) await angemeldet(session.user);
+  else { $('app').hidden = true; $('login').hidden = false; }
 }
 
 async function angemeldet(user){
   ich = user;
-  document.getElementById('login').hidden = true;
-  document.getElementById('app').hidden = false;
+  $('login').hidden = true;
+  $('app').hidden = false;
   await ladeGrunddaten();
-  tabWechseln('start');
+  tabsAufbauen();
+  tabWechseln(istVerwalter ? 'start' : 'start');
 }
 
 async function ladeGrunddaten(){
-  const { data: m } = await sb.from('mitarbeiter_uebersicht').select('*').eq('email', ich.email).maybeSingle();
-  meinMitarbeiter = m || null;
+  const { data: k } = await sb.from('mein_konto').select('*').maybeSingle();
+  meinKonto = k || null;
+  istVerwalter = meinKonto ? meinKonto.rolle === 'verwalter' : false;
 
-  if(meinMitarbeiter){
-    istVerwalter = meinMitarbeiter.rolle === 'verwalter';
-  } else {
-    // Ohne eigenen Datensatz nur dann Verwalter, wenn die Tabelle wirklich leer ist
-    // (Ersteinrichtung) – sonst würde die App Rechte vorgaukeln, die die Datenbank verweigert.
-    const { count } = await sb.from('mitarbeiter').select('id', { count:'exact', head:true });
-    istVerwalter = !count;
-  }
+  $('wer-bin-ich').textContent = meinKonto ? meinKonto.vollername : ich.email;
 
-  document.getElementById('wer-bin-ich').textContent = meinMitarbeiter ? meinMitarbeiter.vollername : ich.email;
-  document.querySelectorAll('.nur-verwalter').forEach(el => el.hidden = !istVerwalter);
+  const { data: f } = await sb.from('feiertage').select('datum,bezeichnung');
+  feiertage = new Map((f||[]).map(x => [x.datum, x.bezeichnung]));
 
-  const { data: f } = await sb.from('feiertage').select('datum');
-  feiertageSet = new Set((f||[]).map(x=>x.datum));
+  const { data: a } = await sb.from('abteilungen').select('name').order('name');
+  abteilungen = (a||[]).map(x => x.name);
+}
 
-  const { data: abt } = await sb.from('abteilungen').select('name').order('name');
-  abteilungenListe = (abt||[]).map(x=>x.name);
+/* ===================== Navigation ===================== */
+
+const TABS_VERWALTER = [
+  ['start','Start'], ['antraege','Anträge'], ['kalender','Kalender'],
+  ['mitarbeiter','Mitarbeiter'], ['auswertung','Auswertung'],
+  ['dokument','Dokument'], ['feiertage','Feiertage']
+];
+const TABS_MITARBEITER = [ ['start','Mein Konto'], ['antraege','Mein Urlaub'] ];
+
+function tabsAufbauen(){
+  const tabs = istVerwalter ? TABS_VERWALTER : TABS_MITARBEITER;
+  $('tabs').innerHTML = tabs.map(([id,label]) =>
+    `<button data-tab="${id}">${label}</button>`).join('');
+  $('tabs').querySelectorAll('button').forEach(b =>
+    b.addEventListener('click', () => tabWechseln(b.dataset.tab)));
 }
 
 function tabWechseln(name){
-  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('tab-aktiv', b.dataset.tab===name));
-  document.querySelectorAll('main section').forEach(s=>s.hidden = s.id !== 'tab-'+name);
-  if(name==='start') renderStart();
-  if(name==='antraege') renderAntraege();
-  if(name==='mitarbeiter') renderMitarbeiter();
-  if(name==='feiertage') renderFeiertage();
-  if(name==='dokument') renderDokument();
+  aktiverTab = name;
+  $('tabs').querySelectorAll('button').forEach(b => b.classList.toggle('tab-aktiv', b.dataset.tab === name));
+  $('inhalt').innerHTML = '<p class="leer">Lade …</p>';
+  if(name === 'start') renderStart();
+  else if(name === 'antraege') renderAntraege();
+  else if(name === 'kalender') renderKalender();
+  else if(name === 'mitarbeiter') renderMitarbeiter();
+  else if(name === 'auswertung') renderAuswertung();
+  else if(name === 'dokument') renderDokument();
+  else if(name === 'feiertage') renderFeiertage();
 }
+
+/* ===================== Start ===================== */
 
 async function renderStart(){
-  const el = document.getElementById('tab-start');
-  if(!istVerwalter){
-    if(!meinMitarbeiter){
-      el.innerHTML = `<div class="hinweis">Für deine E-Mail-Adresse gibt es noch keinen Mitarbeiter-Datensatz. Bitte an den Verwalter wenden.</div>`;
-      return;
-    }
-    const m = meinMitarbeiter;
-    el.innerHTML = `
-      <div class="karten-reihe">
-        <div class="karte"><div class="zahl">${formatZahl(m.urlaubskonto)}</div><div class="label">Urlaubskonto (Tage)</div></div>
-        <div class="karte"><div class="zahl">${formatZahl(m.urlaubsanspruch)}</div><div class="label">Urlaubsanspruch gesamt</div></div>
-        <div class="karte"><div class="zahl">${formatZahl(m.konsumiert)}</div><div class="label">Konsumierte Urlaubstage</div></div>
-        <div class="karte"><div class="zahl">${formatZahl(m.krank)}</div><div class="label">Krankheitstage</div></div>
-        <div class="karte"><div class="zahl">${formatZahl(m.sonstige)}</div><div class="label">Sonstige Abwesenheit</div></div>
-        <div class="karte"><div class="zahl">${m.tage_in_firma}</div><div class="label">Tage in der Firma</div></div>
-      </div>
-      <div class="block">
-        <h2>Eintrittsdatum</h2>
-        <p>${formatDatum(m.eintrittsdatum)} · Abteilung: ${m.abteilung}</p>
-      </div>`;
-    return;
-  }
-  const { data, error } = await sb.from('mitarbeiter_uebersicht').select('*').order('vollername');
-  if(error){ el.innerHTML = `<div class="hinweis">${error.message}</div>`; return; }
-  const aktive = (data||[]).filter(m=>!m.austrittsdatum);
-  el.innerHTML = `
+  if(!istVerwalter) return renderStartMitarbeiter();
+
+  const heute = heuteIso();
+  const in7 = new Date(); in7.setDate(in7.getDate()+7);
+  const bisIso = in7.toISOString().slice(0,10);
+
+  const [{ data: leute }, { data: offene }, { data: abw }] = await Promise.all([
+    sb.from('mitarbeiter_uebersicht').select('id,austrittsdatum,urlaubskonto'),
+    sb.from('abwesenheiten').select('id').eq('status','offen'),
+    sb.from('abwesenheiten')
+      .select('*, mitarbeiter!abwesenheiten_mitarbeiter_id_fkey(vorname,nachname,abteilung)')
+      .eq('status','genehmigt').lte('von', bisIso).gte('bis', heute).order('von')
+  ]);
+
+  const aktive = (leute||[]).filter(m => !m.austrittsdatum);
+  const heuteWeg = (abw||[]).filter(a => a.von <= heute && a.bis >= heute);
+  const demnaechst = (abw||[]).filter(a => a.von > heute);
+
+  $('inhalt').innerHTML = `
+    <div class="karten-reihe">
+      <div class="karte"><div class="zahl">${aktive.length}</div><div class="label">Aktive Mitarbeiter</div></div>
+      <div class="karte"><div class="zahl">${heuteWeg.length}</div><div class="label">Heute abwesend</div></div>
+      <div class="karte"><div class="zahl">${(offene||[]).length}</div><div class="label">Offene Anträge</div></div>
+      <div class="karte"><div class="zahl">${formatZahl(aktive.reduce((s,m)=>s+Number(m.urlaubskonto||0),0),0)}</div><div class="label">Urlaubstage auf allen Konten</div></div>
+    </div>
+
     <div class="block">
-      <h2>Übersicht aktive Mitarbeiter (${aktive.length})</h2>
-      <div class="tabelle-wrapper"><table>
-        <thead><tr><th>Name</th><th>Abteilung</th><th>Anspruch</th><th>Konsumiert</th><th>Krank</th><th>Sonstige</th><th>Konto</th></tr></thead>
-        <tbody>
-          ${aktive.map(m=>`<tr>
-            <td>${m.vollername}</td><td>${m.abteilung}</td>
-            <td>${formatZahl(m.urlaubsanspruch)}</td><td>${formatZahl(m.konsumiert)}</td>
-            <td>${formatZahl(m.krank)}</td><td>${formatZahl(m.sonstige)}</td>
-            <td><strong>${formatZahl(m.urlaubskonto)}</strong></td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div>
+      <h2>Heute abwesend</h2>
+      ${heuteWeg.length ? tabelleAbwesend(heuteWeg) : '<p class="leer">Heute ist niemand abwesend.</p>'}
+    </div>
+
+    <div class="block">
+      <h2>Nächste 7 Tage</h2>
+      ${demnaechst.length ? tabelleAbwesend(demnaechst) : '<p class="leer">In den nächsten 7 Tagen ist nichts geplant.</p>'}
     </div>`;
 }
+
+function tabelleAbwesend(liste){
+  return `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Mitarbeiter</th><th>Abteilung</th><th>Art</th><th>Von</th><th>Bis</th><th class="zahl-spalte">Werktage</th></tr></thead>
+    <tbody>${liste.map(a => `<tr>
+      <td>${esc(a.mitarbeiter ? a.mitarbeiter.vorname+' '+a.mitarbeiter.nachname : '—')}</td>
+      <td>${esc(a.mitarbeiter?.abteilung || '—')}</td>
+      <td><span class="badge art-${esc(a.art)}">${esc(a.art)}</span></td>
+      <td>${formatDatum(a.von)}</td><td>${formatDatum(a.bis)}</td>
+      <td class="zahl-spalte">${formatZahl(a.werktage)}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function renderStartMitarbeiter(){
+  if(!meinKonto){
+    $('inhalt').innerHTML = `<div class="hinweis">Zu deiner Anmeldung gibt es keinen Mitarbeiter-Datensatz. Bitte wende dich an die Verwaltung.</div>`;
+    return;
+  }
+  const m = meinKonto;
+  $('inhalt').innerHTML = `
+    <div class="karten-reihe">
+      <div class="karte"><div class="zahl">${formatZahl(m.urlaubskonto)}</div><div class="label">Resturlaub (Tage)</div></div>
+      <div class="karte"><div class="zahl">${formatZahl(m.konsumiert)}</div><div class="label">Verbrauchter Urlaub</div></div>
+      <div class="karte"><div class="zahl">${formatZahl(m.urlaubsanspruch)}</div><div class="label">Anspruch gesamt</div></div>
+      <div class="karte"><div class="zahl">${formatZahl(m.krank)}</div><div class="label">Krankheitstage</div></div>
+      <div class="karte"><div class="zahl">${formatZahl(m.sonstige)}</div><div class="label">Sonstige Abwesenheit</div></div>
+    </div>
+    <div class="block">
+      <h2>Meine Daten</h2>
+      <div class="tabelle-wrapper"><table><tbody>
+        <tr><th>Dienstnummer</th><td>${esc(m.dienstnummer || '—')}</td></tr>
+        <tr><th>Abteilung</th><td>${esc(m.abteilung)}</td></tr>
+        <tr><th>Tätigkeit</th><td>${esc(m.taetigkeit || '—')}</td></tr>
+        <tr><th>Im Betrieb seit</th><td>${formatDatum(m.eintrittsdatum)} (${m.tage_in_firma} Tage)</td></tr>
+      </tbody></table></div>
+    </div>`;
+}
+
+/* ===================== Anträge ===================== */
 
 async function renderAntraege(){
-  const el = document.getElementById('tab-antraege');
-  if(!istVerwalter){
-    if(!meinMitarbeiter){
-      el.innerHTML = `<div class="hinweis">Für deine E-Mail-Adresse gibt es noch keinen Mitarbeiter-Datensatz. Bitte an den Verwalter wenden.</div>`;
-      return;
-    }
-    el.innerHTML = `
-      <div class="block">
-        <h2>Neuen Antrag stellen</h2>
-        <form id="neuer-antrag-form" class="formular-reihe">
-          <div class="feld"><label>Art</label>
-            <select id="na-art"><option>Urlaub</option><option>Krank</option><option>Sonstige</option></select>
-          </div>
-          <div class="feld"><label>Von</label><input id="na-von" type="date" required></div>
-          <div class="feld"><label>Bis</label><input id="na-bis" type="date" required></div>
-          <div class="feld"><label>Werktage</label><input id="na-werktage" type="text" readonly value="0" style="width:4em"></div>
-          <button class="knopf" type="submit">Beantragen</button>
-        </form>
-        <p class="fehler" id="na-fehler"></p>
-      </div>
-      <div class="block">
-        <h2>Meine Anträge</h2>
-        <div id="meine-antraege-liste"></div>
-      </div>`;
-    const von = document.getElementById('na-von');
-    const bis = document.getElementById('na-bis');
-    const vorschau = () => { document.getElementById('na-werktage').value = (von.value&&bis.value) ? werktageZaehlen(von.value,bis.value) : 0; };
-    von.addEventListener('change', vorschau);
-    bis.addEventListener('change', vorschau);
-    document.getElementById('neuer-antrag-form').addEventListener('submit', neuerAntragAbsenden);
-    await ladeEigeneAntraege();
+  if(istVerwalter) return renderAntraegeVerwalter();
+
+  if(!meinKonto){
+    $('inhalt').innerHTML = `<div class="hinweis">Zu deiner Anmeldung gibt es keinen Mitarbeiter-Datensatz.</div>`;
     return;
   }
-
-  el.innerHTML = `
+  $('inhalt').innerHTML = `
     <div class="block">
-      <div class="umschalter">
-        <button data-filter="offen" class="${antraegeFilter==='offen'?'aktiv':''}">Offen</button>
-        <button data-filter="alle" class="${antraegeFilter==='alle'?'aktiv':''}">Alle</button>
-      </div>
-      <div id="verwalter-antraege-liste"></div>
-    </div>`;
-  el.querySelectorAll('.umschalter button').forEach(b=>b.addEventListener('click', ()=>{ antraegeFilter=b.dataset.filter; renderAntraege(); }));
-  await ladeAlleAntraege();
-}
+      <h2>Neuen Antrag stellen</h2>
+      <form id="antrag-form" class="formular-reihe">
+        <div class="feld"><label>Art</label>
+          <select id="an-art">${ARTEN.map(a=>`<option>${a}</option>`).join('')}</select></div>
+        <div class="feld"><label>Von</label><input id="an-von" type="date" required></div>
+        <div class="feld"><label>Bis</label><input id="an-bis" type="date" required></div>
+        <div class="feld"><label>Werktage</label><input id="an-werktage" readonly value="0" style="width:5em"></div>
+        <div class="feld" style="flex:1;min-width:180px"><label>Anmerkung (optional)</label><input id="an-kommentar"></div>
+        <button class="knopf" type="submit">Beantragen</button>
+      </form>
+      <p class="fehler" id="an-fehler"></p>
+    </div>
+    <div class="block"><h2>Meine Anträge</h2><div id="meine-antraege"></div></div>`;
 
-async function ladeEigeneAntraege(){
-  const { data, error } = await sb.from('abwesenheiten')
-    .select('*').eq('mitarbeiter_id', meinMitarbeiter.id).order('erstellt_am', { ascending:false });
-  const ziel = document.getElementById('meine-antraege-liste');
-  if(error){ ziel.innerHTML = error.message; return; }
-  if(!data.length){ ziel.innerHTML = '<p style="color:var(--muted)">Noch keine Anträge.</p>'; return; }
-  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
-    <thead><tr><th>Art</th><th>Von</th><th>Bis</th><th>Werktage</th><th>Status</th><th></th></tr></thead>
-    <tbody>${data.map(a=>`<tr>
-      <td>${a.art}</td><td>${formatDatum(a.von)}</td><td>${formatDatum(a.bis)}</td><td>${a.werktage}</td>
-      <td><span class="badge status-${a.status}">${a.status}</span></td>
-      <td>${a.status==='offen' ? `<button class="knopf sekundaer klein" onclick="antragZurueckziehen('${a.id}')">Zurückziehen</button>` : ''}</td>
-    </tr>`).join('')}</tbody></table></div>`;
-}
-
-async function ladeAlleAntraege(){
-  let q = sb.from('abwesenheiten').select('*, mitarbeiter!abwesenheiten_mitarbeiter_id_fkey(vorname,nachname)').order('erstellt_am', { ascending:false });
-  if(antraegeFilter==='offen') q = q.eq('status','offen');
-  const { data, error } = await q;
-  const ziel = document.getElementById('verwalter-antraege-liste');
-  if(error){ ziel.innerHTML = error.message; return; }
-  if(!data.length){ ziel.innerHTML = '<p style="color:var(--muted)">Keine Anträge.</p>'; return; }
-  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
-    <thead><tr><th>Mitarbeiter</th><th>Art</th><th>Von</th><th>Bis</th><th>Werktage</th><th>Status</th><th></th></tr></thead>
-    <tbody>${data.map(a=>`<tr>
-      <td>${a.mitarbeiter ? a.mitarbeiter.vorname+' '+a.mitarbeiter.nachname : '—'}</td>
-      <td>${a.art}</td><td>${formatDatum(a.von)}</td><td>${formatDatum(a.bis)}</td><td>${a.werktage}</td>
-      <td><span class="badge status-${a.status}">${a.status}</span></td>
-      <td>${a.status==='offen' ? `
-        <button class="knopf klein" onclick="antragEntscheiden('${a.id}','genehmigt')">Genehmigen</button>
-        <button class="knopf gefahr klein" onclick="antragEntscheiden('${a.id}','abgelehnt')">Ablehnen</button>` : ''}</td>
-    </tr>`).join('')}</tbody></table></div>`;
-}
-
-async function neuerAntragAbsenden(e){
-  e.preventDefault();
-  const art = document.getElementById('na-art').value;
-  const von = document.getElementById('na-von').value;
-  const bis = document.getElementById('na-bis').value;
-  const werktage = werktageZaehlen(von,bis);
-  const fehlerEl = document.getElementById('na-fehler');
-  fehlerEl.textContent = '';
-  if(werktage<=0){ fehlerEl.textContent = 'Der Zeitraum enthält keinen Werktag.'; return; }
-  const { error } = await sb.from('abwesenheiten').insert({
-    mitarbeiter_id: meinMitarbeiter.id, art, von, bis, werktage, status:'offen'
-  });
-  if(error){ fehlerEl.textContent = error.message; return; }
-  await renderAntraege();
-}
-
-async function antragZurueckziehen(id){
-  if(!confirm('Diesen Antrag wirklich zurückziehen?')) return;
-  await sb.from('abwesenheiten').delete().eq('id', id);
+  const rechnen = () => {
+    const v = $('an-von').value, b = $('an-bis').value;
+    $('an-werktage').value = (v && b) ? werktageZaehlen(v,b) : 0;
+  };
+  $('an-von').addEventListener('change', () => { if(!$('an-bis').value) $('an-bis').value = $('an-von').value; rechnen(); });
+  $('an-bis').addEventListener('change', rechnen);
+  $('antrag-form').addEventListener('submit', antragAbsenden);
   await ladeEigeneAntraege();
 }
 
-async function antragEntscheiden(id, status){
+async function ladeEigeneAntraege(){
+  const { data, error } = await sb.from('abwesenheiten').select('*')
+    .eq('mitarbeiter_id', meinKonto.id).order('von', { ascending:false });
+  const ziel = $('meine-antraege');
+  if(error){ ziel.innerHTML = `<p class="fehler">${esc(error.message)}</p>`; return; }
+  if(!data.length){ ziel.innerHTML = '<p class="leer">Noch keine Anträge.</p>'; return; }
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Art</th><th>Von</th><th>Bis</th><th class="zahl-spalte">Werktage</th><th>Status</th><th></th></tr></thead>
+    <tbody>${data.map(a => `<tr>
+      <td><span class="badge art-${esc(a.art)}">${esc(a.art)}</span></td>
+      <td>${formatDatum(a.von)}</td><td>${formatDatum(a.bis)}</td>
+      <td class="zahl-spalte">${formatZahl(a.werktage)}</td>
+      <td><span class="badge status-${esc(a.status)}">${esc(a.status)}</span></td>
+      <td>${a.status === 'offen' ? `<button class="knopf sekundaer klein" data-zurueck="${a.id}">Zurückziehen</button>` : ''}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+  ziel.querySelectorAll('[data-zurueck]').forEach(b => b.addEventListener('click', async () => {
+    if(!confirm('Diesen Antrag wirklich zurückziehen?')) return;
+    await sb.from('abwesenheiten').delete().eq('id', b.dataset.zurueck);
+    await ladeEigeneAntraege();
+  }));
+}
+
+async function antragAbsenden(e){
+  e.preventDefault();
+  const fehler = $('an-fehler');
+  fehler.textContent = '';
+  const von = $('an-von').value, bis = $('an-bis').value;
+  const werktage = werktageZaehlen(von, bis);
+  if(werktage <= 0){ fehler.textContent = 'In diesem Zeitraum liegt kein Werktag.'; return; }
+  const { error } = await sb.from('abwesenheiten').insert({
+    mitarbeiter_id: meinKonto.id, art: $('an-art').value, von, bis, werktage,
+    kommentar: $('an-kommentar').value.trim() || null, status: 'offen'
+  });
+  if(error){ fehler.textContent = error.message; return; }
+  $('antrag-form').reset();
+  $('an-werktage').value = 0;
+  await ladeEigeneAntraege();
+}
+
+let antraegeFilter = 'offen';
+
+async function renderAntraegeVerwalter(){
+  $('inhalt').innerHTML = `
+    <div class="block">
+      <div class="block-kopf">
+        <h2>Anträge</h2>
+        <div class="umschalter">
+          <button data-f="offen" class="${antraegeFilter==='offen'?'aktiv':''}">Offen</button>
+          <button data-f="alle" class="${antraegeFilter==='alle'?'aktiv':''}">Alle</button>
+        </div>
+      </div>
+      <div id="antraege-liste"></div>
+    </div>
+    <div class="block">
+      <h2>Abwesenheit direkt eintragen</h2>
+      <p class="leer">Für Meldungen, die nicht vom Mitarbeiter selbst kommen – wird sofort als genehmigt gespeichert.</p>
+      <form id="direkt-form" class="formular-reihe">
+        <div class="feld" style="min-width:200px"><label>Mitarbeiter</label><select id="dir-mitarbeiter"></select></div>
+        <div class="feld"><label>Art</label><select id="dir-art">${ARTEN.map(a=>`<option>${a}</option>`).join('')}</select></div>
+        <div class="feld"><label>Von</label><input id="dir-von" type="date" required></div>
+        <div class="feld"><label>Bis</label><input id="dir-bis" type="date" required></div>
+        <div class="feld"><label>Werktage</label><input id="dir-werktage" readonly value="0" style="width:5em"></div>
+        <button class="knopf" type="submit">Eintragen</button>
+      </form>
+      <p class="fehler" id="dir-fehler"></p>
+    </div>`;
+
+  $('inhalt').querySelectorAll('.umschalter button').forEach(b =>
+    b.addEventListener('click', () => { antraegeFilter = b.dataset.f; renderAntraegeVerwalter(); }));
+
+  const { data: leute } = await sb.from('mitarbeiter_uebersicht')
+    .select('id,vollername,austrittsdatum').order('vollername');
+  const aktive = (leute||[]).filter(m => !m.austrittsdatum);
+  $('dir-mitarbeiter').innerHTML = aktive.map(m => `<option value="${m.id}">${esc(m.vollername)}</option>`).join('');
+
+  const rechnen = () => {
+    const v = $('dir-von').value, b = $('dir-bis').value;
+    $('dir-werktage').value = (v && b) ? werktageZaehlen(v,b) : 0;
+  };
+  $('dir-von').addEventListener('change', () => { if(!$('dir-bis').value) $('dir-bis').value = $('dir-von').value; rechnen(); });
+  $('dir-bis').addEventListener('change', rechnen);
+  $('direkt-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fehler = $('dir-fehler'); fehler.textContent = '';
+    const von = $('dir-von').value, bis = $('dir-bis').value;
+    const werktage = werktageZaehlen(von, bis);
+    if(werktage <= 0){ fehler.textContent = 'In diesem Zeitraum liegt kein Werktag.'; return; }
+    const { error } = await sb.from('abwesenheiten').insert({
+      mitarbeiter_id: $('dir-mitarbeiter').value, art: $('dir-art').value, von, bis, werktage,
+      status: 'genehmigt', bearbeitet_von: meinKonto?.id || null, bearbeitet_am: new Date().toISOString()
+    });
+    if(error){ fehler.textContent = error.message; return; }
+    $('direkt-form').reset(); $('dir-werktage').value = 0;
+    await ladeAlleAntraege();
+  });
+
+  await ladeAlleAntraege();
+}
+
+async function ladeAlleAntraege(){
+  let q = sb.from('abwesenheiten')
+    .select('*, mitarbeiter!abwesenheiten_mitarbeiter_id_fkey(vorname,nachname,abteilung)')
+    .order('erstellt_am', { ascending:false });
+  if(antraegeFilter === 'offen') q = q.eq('status','offen');
+  const { data, error } = await q;
+  const ziel = $('antraege-liste');
+  if(error){ ziel.innerHTML = `<p class="fehler">${esc(error.message)}</p>`; return; }
+  if(!data.length){ ziel.innerHTML = '<p class="leer">Keine Anträge.</p>'; return; }
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Mitarbeiter</th><th>Abteilung</th><th>Art</th><th>Von</th><th>Bis</th><th class="zahl-spalte">Werktage</th><th>Status</th><th></th></tr></thead>
+    <tbody>${data.map(a => `<tr>
+      <td>${esc(a.mitarbeiter ? a.mitarbeiter.vorname+' '+a.mitarbeiter.nachname : '—')}</td>
+      <td>${esc(a.mitarbeiter?.abteilung || '—')}</td>
+      <td><span class="badge art-${esc(a.art)}">${esc(a.art)}</span></td>
+      <td>${formatDatum(a.von)}</td><td>${formatDatum(a.bis)}</td>
+      <td class="zahl-spalte">${formatZahl(a.werktage)}</td>
+      <td><span class="badge status-${esc(a.status)}">${esc(a.status)}</span></td>
+      <td>${a.status === 'offen'
+        ? `<button class="knopf klein" data-ja="${a.id}">Genehmigen</button>
+           <button class="knopf gefahr klein" data-nein="${a.id}">Ablehnen</button>`
+        : `<button class="knopf sekundaer klein" data-loeschen="${a.id}">Löschen</button>`}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+
+  ziel.querySelectorAll('[data-ja]').forEach(b => b.addEventListener('click', () => entscheiden(b.dataset.ja, 'genehmigt')));
+  ziel.querySelectorAll('[data-nein]').forEach(b => b.addEventListener('click', () => entscheiden(b.dataset.nein, 'abgelehnt')));
+  ziel.querySelectorAll('[data-loeschen]').forEach(b => b.addEventListener('click', async () => {
+    if(!confirm('Diesen Eintrag wirklich löschen?')) return;
+    await sb.from('abwesenheiten').delete().eq('id', b.dataset.loeschen);
+    await ladeAlleAntraege();
+  }));
+}
+
+async function entscheiden(id, status){
   await sb.from('abwesenheiten').update({
-    status, bearbeitet_von: meinMitarbeiter.id, bearbeitet_am: new Date().toISOString()
+    status, bearbeitet_von: meinKonto?.id || null, bearbeitet_am: new Date().toISOString()
   }).eq('id', id);
   await ladeAlleAntraege();
 }
 
+/* ===================== Kalender ===================== */
+
+let kalAnsicht = 'monat';
+let kalJahr = new Date().getFullYear();
+let kalMonat = new Date().getMonth();
+let kalMitarbeiterId = '';
+
+async function renderKalender(){
+  const { data: leute } = await sb.from('mitarbeiter_uebersicht')
+    .select('id,vollername,abteilung,austrittsdatum').order('vollername');
+  const aktive = (leute||[]).filter(m => !m.austrittsdatum);
+  if(!kalMitarbeiterId && aktive.length) kalMitarbeiterId = aktive[0].id;
+
+  $('inhalt').innerHTML = `
+    <div class="block">
+      <div class="block-kopf">
+        <h2>Kalender</h2>
+        <div class="umschalter">
+          <button data-a="monat" class="${kalAnsicht==='monat'?'aktiv':''}">Monat · alle</button>
+          <button data-a="jahr" class="${kalAnsicht==='jahr'?'aktiv':''}">Jahr · eine Person</button>
+        </div>
+      </div>
+      <div class="formular-reihe" id="kal-steuerung"></div>
+      <div id="kal-inhalt"></div>
+      <div class="legende">
+        <span><i style="background:#6f8ef5"></i> Urlaub</span>
+        <span><i style="background:#e0776b"></i> Krank</span>
+        <span><i style="background:#e0b062"></i> Sonstige</span>
+        <span><i style="background:#d6dbe8"></i> Feiertag</span>
+        <span><i style="background:#e3e7f0"></i> Wochenende</span>
+        <span style="opacity:.5"><i style="background:#6f8ef5;opacity:.45"></i> blass = noch nicht genehmigt</span>
+      </div>
+    </div>`;
+
+  $('inhalt').querySelectorAll('.umschalter button').forEach(b =>
+    b.addEventListener('click', () => { kalAnsicht = b.dataset.a; renderKalender(); }));
+
+  const jahre = [];
+  for(let j = new Date().getFullYear()+1; j >= 2016; j--) jahre.push(j);
+
+  if(kalAnsicht === 'monat'){
+    $('kal-steuerung').innerHTML = `
+      <div class="feld"><label>Monat</label><select id="kal-monat">${MONATE.map((m,i)=>`<option value="${i}" ${i===kalMonat?'selected':''}>${m}</option>`).join('')}</select></div>
+      <div class="feld"><label>Jahr</label><select id="kal-jahr">${jahre.map(j=>`<option ${j===kalJahr?'selected':''}>${j}</option>`).join('')}</select></div>`;
+    $('kal-monat').addEventListener('change', e => { kalMonat = Number(e.target.value); zeichneMonat(aktive); });
+    $('kal-jahr').addEventListener('change', e => { kalJahr = Number(e.target.value); zeichneMonat(aktive); });
+    await zeichneMonat(aktive);
+  } else {
+    $('kal-steuerung').innerHTML = `
+      <div class="feld" style="min-width:200px"><label>Mitarbeiter</label>
+        <select id="kal-person">${aktive.map(m=>`<option value="${m.id}" ${m.id===kalMitarbeiterId?'selected':''}>${esc(m.vollername)}</option>`).join('')}</select></div>
+      <div class="feld"><label>Jahr</label><select id="kal-jahr">${jahre.map(j=>`<option ${j===kalJahr?'selected':''}>${j}</option>`).join('')}</select></div>`;
+    $('kal-person').addEventListener('change', e => { kalMitarbeiterId = e.target.value; zeichneJahr(); });
+    $('kal-jahr').addEventListener('change', e => { kalJahr = Number(e.target.value); zeichneJahr(); });
+    await zeichneJahr();
+  }
+}
+
+async function ladeAbwesenheitenZeitraum(vonIso, bisIso, mitarbeiterId){
+  let q = sb.from('abwesenheiten').select('mitarbeiter_id,art,von,bis,status')
+    .lte('von', bisIso).gte('bis', vonIso).neq('status','abgelehnt');
+  if(mitarbeiterId) q = q.eq('mitarbeiter_id', mitarbeiterId);
+  const { data } = await q;
+  return data || [];
+}
+
+function belegungBauen(abwesenheiten){
+  const karte = new Map(); // "mitarbeiterId|iso" -> {art,status}
+  abwesenheiten.forEach(a => {
+    const d = new Date(a.von+'T00:00:00Z');
+    const bis = new Date(a.bis+'T00:00:00Z');
+    while(d <= bis){
+      karte.set(`${a.mitarbeiter_id}|${d.toISOString().slice(0,10)}`, { art:a.art, status:a.status });
+      d.setUTCDate(d.getUTCDate()+1);
+    }
+  });
+  return karte;
+}
+
+async function zeichneMonat(leute){
+  const tage = new Date(kalJahr, kalMonat+1, 0).getDate();
+  const ersterIso = `${kalJahr}-${String(kalMonat+1).padStart(2,'0')}-01`;
+  const letzterIso = `${kalJahr}-${String(kalMonat+1).padStart(2,'0')}-${String(tage).padStart(2,'0')}`;
+  const belegung = belegungBauen(await ladeAbwesenheitenZeitraum(ersterIso, letzterIso));
+
+  const kopf = [];
+  for(let t = 1; t <= tage; t++){
+    const d = new Date(Date.UTC(kalJahr, kalMonat, t));
+    const we = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+    kopf.push(`<th class="tag-kopf ${we?'we':''}">${t}</th>`);
+  }
+
+  const zeilen = leute.map(m => {
+    const zellen = [];
+    for(let t = 1; t <= tage; t++){
+      const iso = `${kalJahr}-${String(kalMonat+1).padStart(2,'0')}-${String(t).padStart(2,'0')}`;
+      const d = new Date(iso+'T00:00:00Z');
+      const we = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+      const eintrag = belegung.get(`${m.id}|${iso}`);
+      const klassen = ['zelle'];
+      if(eintrag) { klassen.push(eintrag.art); if(eintrag.status === 'offen') klassen.push('offen'); }
+      else if(we) klassen.push('we');
+      else if(feiertage.has(iso)) klassen.push('feiertag');
+      const titel = eintrag ? `${esc(m.vollername)}: ${eintrag.art} am ${formatDatum(iso)}`
+        : (feiertage.has(iso) ? esc(feiertage.get(iso)) : formatDatum(iso));
+      zellen.push(`<td class="${klassen.join(' ')}" title="${titel}"></td>`);
+    }
+    return `<tr><td class="name-spalte">${esc(m.vollername)}</td>${zellen.join('')}</tr>`;
+  });
+
+  $('kal-inhalt').innerHTML = leute.length
+    ? `<div class="tabelle-wrapper"><table class="kalender">
+         <thead><tr><th class="name-spalte">${MONATE[kalMonat]} ${kalJahr}</th>${kopf.join('')}</tr></thead>
+         <tbody>${zeilen.join('')}</tbody></table></div>`
+    : '<p class="leer">Keine aktiven Mitarbeiter.</p>';
+}
+
+async function zeichneJahr(){
+  if(!kalMitarbeiterId){ $('kal-inhalt').innerHTML = '<p class="leer">Keine aktiven Mitarbeiter.</p>'; return; }
+  const belegung = belegungBauen(
+    await ladeAbwesenheitenZeitraum(`${kalJahr}-01-01`, `${kalJahr}-12-31`, kalMitarbeiterId));
+
+  const kopf = [];
+  for(let t = 1; t <= 31; t++) kopf.push(`<th class="tag-kopf">${t}</th>`);
+
+  const zeilen = MONATE.map((name, mi) => {
+    const tage = new Date(kalJahr, mi+1, 0).getDate();
+    const zellen = [];
+    for(let t = 1; t <= 31; t++){
+      if(t > tage){ zellen.push('<td></td>'); continue; }
+      const iso = `${kalJahr}-${String(mi+1).padStart(2,'0')}-${String(t).padStart(2,'0')}`;
+      const d = new Date(iso+'T00:00:00Z');
+      const we = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+      const eintrag = belegung.get(`${kalMitarbeiterId}|${iso}`);
+      const klassen = ['zelle'];
+      if(eintrag){ klassen.push(eintrag.art); if(eintrag.status === 'offen') klassen.push('offen'); }
+      else if(we) klassen.push('we');
+      else if(feiertage.has(iso)) klassen.push('feiertag');
+      const titel = eintrag ? `${eintrag.art} am ${formatDatum(iso)}`
+        : (feiertage.has(iso) ? esc(feiertage.get(iso)) : formatDatum(iso));
+      zellen.push(`<td class="${klassen.join(' ')}" title="${titel}"></td>`);
+    }
+    return `<tr><td class="name-spalte">${name}</td>${zellen.join('')}</tr>`;
+  });
+
+  $('kal-inhalt').innerHTML = `<div class="tabelle-wrapper"><table class="kalender">
+    <thead><tr><th class="name-spalte">${kalJahr}</th>${kopf.join('')}</tr></thead>
+    <tbody>${zeilen.join('')}</tbody></table></div>`;
+}
+
+/* ===================== Mitarbeiter ===================== */
+
+let maNurAktive = true;
+let importZeilen = [];
+
 async function renderMitarbeiter(){
-  const el = document.getElementById('tab-mitarbeiter');
-  el.innerHTML = `
+  $('inhalt').innerHTML = `
     <div class="block">
       <h2>Neuen Mitarbeiter anlegen</h2>
-      <form id="neuer-mitarbeiter-form" class="formular-reihe">
-        <div class="feld"><label>Rolle</label>
-          <select id="nm-rolle"><option value="mitarbeiter">Mitarbeiter</option><option value="verwalter">Verwalter</option></select>
+      <form id="ma-form">
+        <div class="formular-gitter">
+          <div class="feld"><label>Dienstnummer *</label><input id="ma-dienstnummer" inputmode="numeric" required></div>
+          <div class="feld"><label>Geburtsdatum *</label><input id="ma-geburtsdatum" type="date" required></div>
+          <div class="feld"><label>Vorname *</label><input id="ma-vorname" required></div>
+          <div class="feld"><label>Nachname *</label><input id="ma-nachname" required></div>
+          <div class="feld"><label>Abteilung *</label><select id="ma-abteilung">${abteilungen.map(a=>`<option>${esc(a)}</option>`).join('')}</select></div>
+          <div class="feld"><label>Eintrittsdatum *</label><input id="ma-eintritt" type="date" required></div>
         </div>
-        <div class="feld" id="nm-feld-dienstnummer"><label>Dienstnummer</label><input id="nm-dienstnummer" inputmode="numeric"></div>
-        <div class="feld" id="nm-feld-geburtsdatum"><label>Geburtsdatum</label><input id="nm-geburtsdatum" type="date"></div>
-        <div class="feld" id="nm-feld-email" hidden><label>E-Mail (Login)</label><input id="nm-email" type="email"></div>
-        <div class="feld"><label>Vorname</label><input id="nm-vorname" required></div>
-        <div class="feld"><label>Nachname</label><input id="nm-nachname" required></div>
-        <div class="feld"><label>Abteilung</label>
-          <select id="nm-abteilung">${abteilungenListe.map(a=>`<option>${a}</option>`).join('')}</select>
-        </div>
-        <div class="feld"><label>Eintrittsdatum</label><input id="nm-eintritt" type="date" required></div>
-        <button class="knopf" type="submit">Anlegen</button>
+        <fieldset>
+          <legend>Beschäftigung</legend>
+          <div class="formular-gitter">
+            <div class="feld"><label>Tätigkeit / Position</label><input id="ma-taetigkeit"></div>
+            <div class="feld"><label>Beschäftigungsart</label>
+              <select id="ma-beschaeftigung"><option value="">—</option><option>Vollzeit</option><option>Teilzeit</option><option>Geringfügig</option></select></div>
+            <div class="feld"><label>Wochenstunden</label><input id="ma-wochenstunden" type="number" step="0.5" min="0"></div>
+            <div class="feld"><label>Urlaubstage je 30 Tage</label><input id="ma-urlaubssatz" type="number" step="0.001" value="2.055"></div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Kontakt</legend>
+          <div class="formular-gitter">
+            <div class="feld"><label>Telefon</label><input id="ma-telefon"></div>
+            <div class="feld feld-breit"><label>Adresse</label><input id="ma-adresse"></div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Amtliche Daten – nur für Verwalter sichtbar</legend>
+          <div class="formular-gitter">
+            <div class="feld"><label>SV-Nummer</label><input id="ma-sv"></div>
+            <div class="feld"><label>Staatsangehörigkeit</label><input id="ma-staat"></div>
+          </div>
+        </fieldset>
+        <button class="knopf" type="submit" id="ma-knopf">Anlegen</button>
       </form>
-      <p class="fehler" id="nm-fehler"></p>
-      <p id="nm-hinweis" style="color:var(--muted);font-size:.85rem">Dienstnummer + Geburtsdatum werden automatisch der Login-Code des Mitarbeiters.</p>
+      <p class="fehler" id="ma-fehler"></p>
+      <div id="ma-erfolg"></div>
     </div>
+
     <div class="block">
-      <h2>Mehrere Mitarbeiter per Datei importieren</h2>
-      <p style="color:var(--muted);font-size:.9rem">Excel- oder CSV-Datei mit Spalten <strong>Vorname, Nachname, Abteilung, Eintrittsdatum</strong> (optional: Austrittsdatum, Kontokorrektur). <a href="#" id="vorlage-link">Vorlage herunterladen</a>.</p>
-      <div class="formular-reihe">
-        <input id="import-datei" type="file" accept=".xlsx,.xls,.csv">
-      </div>
+      <h2>Mehrere per Datei importieren</h2>
+      <p class="leer">Excel- oder CSV-Datei mit den Spalten <strong>Dienstnummer, Vorname, Nachname, Geburtsdatum, Abteilung, Eintrittsdatum</strong> (optional: Taetigkeit, Telefon, Adresse, Austrittsdatum). <a href="#" id="vorlage-link">Vorlage herunterladen</a></p>
+      <div class="formular-reihe"><input id="import-datei" type="file" accept=".xlsx,.xls,.csv"></div>
       <div id="import-vorschau"></div>
     </div>
+
     <div class="block">
-      <div class="umschalter">
-        <button data-f="aktiv" class="${nurAktiveMitarbeiter?'aktiv':''}">Aktive</button>
-        <button data-f="alle" class="${!nurAktiveMitarbeiter?'aktiv':''}">Alle</button>
+      <div class="block-kopf">
+        <h2>Mitarbeiterliste</h2>
+        <div class="umschalter">
+          <button data-f="aktiv" class="${maNurAktive?'aktiv':''}">Aktive</button>
+          <button data-f="alle" class="${!maNurAktive?'aktiv':''}">Alle</button>
+        </div>
       </div>
-      <div id="mitarbeiter-liste"></div>
+      <div id="ma-liste"></div>
     </div>`;
-  document.getElementById('neuer-mitarbeiter-form').addEventListener('submit', neuerMitarbeiterAbsenden);
-  document.getElementById('nm-rolle').addEventListener('change', nmFelderAnpassen);
-  nmFelderAnpassen();
-  el.querySelectorAll('.umschalter button').forEach(b=>b.addEventListener('click', ()=>{ nurAktiveMitarbeiter = b.dataset.f==='aktiv'; renderMitarbeiter(); }));
-  document.getElementById('import-datei').addEventListener('change', importDateiAusgewaehlt);
-  document.getElementById('vorlage-link').addEventListener('click', (e)=>{ e.preventDefault(); importVorlageHerunterladen(); });
+
+  $('ma-form').addEventListener('submit', mitarbeiterAnlegen);
+  $('import-datei').addEventListener('change', importDatei);
+  $('vorlage-link').addEventListener('click', e => { e.preventDefault(); vorlageHerunterladen(); });
+  $('inhalt').querySelectorAll('.umschalter button').forEach(b =>
+    b.addEventListener('click', () => { maNurAktive = b.dataset.f === 'aktiv'; renderMitarbeiter(); }));
   await ladeMitarbeiterListe();
 }
 
-function importVorlageHerunterladen(){
-  const csv = 'Vorname;Nachname;Abteilung;Eintrittsdatum;Austrittsdatum;Kontokorrektur\nMax;Mustermann;Lager;01.03.2024;;0\n';
+async function mitarbeiterAnlegen(e){
+  e.preventDefault();
+  const fehler = $('ma-fehler'); fehler.textContent = '';
+  $('ma-erfolg').innerHTML = '';
+  const knopf = $('ma-knopf');
+  knopf.disabled = true; knopf.textContent = 'Lege an …';
+  try {
+    const nutzdaten = {
+      dienstnummer: $('ma-dienstnummer').value.trim(),
+      geburtsdatum: $('ma-geburtsdatum').value,
+      vorname: $('ma-vorname').value.trim(),
+      nachname: $('ma-nachname').value.trim(),
+      abteilung: $('ma-abteilung').value,
+      eintrittsdatum: $('ma-eintritt').value,
+      taetigkeit: $('ma-taetigkeit').value.trim(),
+      beschaeftigung: $('ma-beschaeftigung').value,
+      wochenstunden: $('ma-wochenstunden').value,
+      telefon: $('ma-telefon').value.trim(),
+      adresse: $('ma-adresse').value.trim(),
+      sv_nummer: $('ma-sv').value.trim(),
+      staatsangehoerigkeit: $('ma-staat').value.trim(),
+      urlaubssatz: $('ma-urlaubssatz').value
+    };
+    const ergebnis = await edgeAufruf('mitarbeiter-anlegen', nutzdaten);
+    $('ma-erfolg').innerHTML = `<div class="erfolg">${esc(nutzdaten.vorname)} ${esc(nutzdaten.nachname)} angelegt. Anmelde-Code: <strong>${esc(ergebnis.code)}</strong></div>`;
+    $('ma-form').reset();
+    $('ma-urlaubssatz').value = '2.055';
+    await ladeMitarbeiterListe();
+  } catch(err){
+    fehler.textContent = err.message;
+  } finally {
+    knopf.disabled = false; knopf.textContent = 'Anlegen';
+  }
+}
+
+async function edgeAufruf(funktion, nutzdaten){
+  const { data:{ session } } = await sb.auth.getSession();
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/${funktion}`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Authorization': 'Bearer ' + session.access_token },
+    body: JSON.stringify(nutzdaten)
+  });
+  const ergebnis = await resp.json().catch(() => ({ error: 'Unlesbare Antwort vom Server' }));
+  if(!resp.ok || ergebnis.error) throw new Error(ergebnis.error || `Fehler ${resp.status}`);
+  return ergebnis;
+}
+
+async function ladeMitarbeiterListe(){
+  const { data, error } = await sb.from('mitarbeiter_uebersicht').select('*').order('vollername');
+  const ziel = $('ma-liste');
+  if(error){ ziel.innerHTML = `<p class="fehler">${esc(error.message)}</p>`; return; }
+  const liste = (data||[]).filter(m => maNurAktive ? !m.austrittsdatum : true);
+  if(!liste.length){ ziel.innerHTML = '<p class="leer">Keine Mitarbeiter.</p>'; return; }
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Nr.</th><th>Name</th><th>Abteilung</th><th>Tätigkeit</th><th>Eintritt</th>
+      <th class="zahl-spalte">Anspruch</th><th class="zahl-spalte">Verbraucht</th><th class="zahl-spalte">Rest</th><th>Rolle</th><th></th></tr></thead>
+    <tbody>${liste.map(m => `<tr>
+      <td>${esc(m.dienstnummer || '—')}</td>
+      <td>${esc(m.vollername)}${m.austrittsdatum ? ' <span class="badge status-abgelehnt">ausgetreten</span>' : ''}</td>
+      <td>${esc(m.abteilung)}</td><td>${esc(m.taetigkeit || '—')}</td>
+      <td>${formatDatum(m.eintrittsdatum)}</td>
+      <td class="zahl-spalte">${formatZahl(m.urlaubsanspruch)}</td>
+      <td class="zahl-spalte">${formatZahl(m.konsumiert)}</td>
+      <td class="zahl-spalte"><strong>${formatZahl(m.urlaubskonto)}</strong></td>
+      <td>${esc(m.rolle)}</td>
+      <td><button class="knopf sekundaer klein" data-bearbeiten="${m.id}">Bearbeiten</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+  ziel.querySelectorAll('[data-bearbeiten]').forEach(b =>
+    b.addEventListener('click', () => mitarbeiterBearbeiten(liste.find(x => x.id === b.dataset.bearbeiten))));
+}
+
+function mitarbeiterBearbeiten(m){
+  zeigeModal(`
+    <h2>${esc(m.vollername)}</h2>
+    <form id="mb-form">
+      <div class="formular-gitter">
+        <div class="feld"><label>Dienstnummer</label><input id="mb-dienstnummer" value="${esc(m.dienstnummer||'')}" readonly></div>
+        <div class="feld"><label>Abteilung</label><select id="mb-abteilung">${abteilungen.map(a=>`<option ${a===m.abteilung?'selected':''}>${esc(a)}</option>`).join('')}</select></div>
+        <div class="feld"><label>Tätigkeit</label><input id="mb-taetigkeit" value="${esc(m.taetigkeit||'')}"></div>
+        <div class="feld"><label>Beschäftigungsart</label>
+          <select id="mb-beschaeftigung">
+            <option value="">—</option>
+            ${['Vollzeit','Teilzeit','Geringfügig'].map(x=>`<option ${x===m.beschaeftigung?'selected':''}>${x}</option>`).join('')}
+          </select></div>
+        <div class="feld"><label>Wochenstunden</label><input id="mb-wochenstunden" type="number" step="0.5" value="${m.wochenstunden ?? ''}"></div>
+        <div class="feld"><label>Eintrittsdatum</label><input id="mb-eintritt" type="date" value="${m.eintrittsdatum||''}"></div>
+        <div class="feld"><label>Austrittsdatum</label><input id="mb-austritt" type="date" value="${m.austrittsdatum||''}"></div>
+        <div class="feld"><label>Urlaubstage je 30 Tage</label><input id="mb-urlaubssatz" type="number" step="0.001" value="${m.urlaubssatz}"></div>
+        <div class="feld"><label>Kontokorrektur (Tage)</label><input id="mb-korrektur" type="number" step="0.01" value="${m.kontokorrektur}"></div>
+        <div class="feld"><label>Rolle</label>
+          <select id="mb-rolle">
+            <option value="mitarbeiter" ${m.rolle==='mitarbeiter'?'selected':''}>Mitarbeiter</option>
+            <option value="verwalter" ${m.rolle==='verwalter'?'selected':''}>Verwalter</option>
+          </select></div>
+        <div class="feld"><label>Telefon</label><input id="mb-telefon" value="${esc(m.telefon||'')}"></div>
+        <div class="feld feld-breit"><label>Adresse</label><input id="mb-adresse" value="${esc(m.adresse||'')}"></div>
+        <div class="feld"><label>SV-Nummer</label><input id="mb-sv" value="${esc(m.sv_nummer||'')}"></div>
+        <div class="feld"><label>Staatsangehörigkeit</label><input id="mb-staat" value="${esc(m.staatsangehoerigkeit||'')}"></div>
+      </div>
+      <p class="fehler" id="mb-fehler"></p>
+      <div style="display:flex;gap:.6em;margin-top:.5em">
+        <button class="knopf" type="submit">Speichern</button>
+        <button class="knopf sekundaer" type="button" id="mb-abbrechen">Abbrechen</button>
+      </div>
+    </form>`);
+
+  $('mb-abbrechen').addEventListener('click', schliesseModal);
+  $('mb-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const zahl = v => v === '' ? null : Number(v);
+    const { error } = await sb.from('mitarbeiter').update({
+      abteilung: $('mb-abteilung').value,
+      taetigkeit: $('mb-taetigkeit').value.trim() || null,
+      beschaeftigung: $('mb-beschaeftigung').value || null,
+      wochenstunden: zahl($('mb-wochenstunden').value),
+      eintrittsdatum: $('mb-eintritt').value,
+      austrittsdatum: $('mb-austritt').value || null,
+      urlaubssatz: Number($('mb-urlaubssatz').value) || 2.055,
+      kontokorrektur: Number($('mb-korrektur').value) || 0,
+      rolle: $('mb-rolle').value,
+      telefon: $('mb-telefon').value.trim() || null,
+      adresse: $('mb-adresse').value.trim() || null,
+      sv_nummer: $('mb-sv').value.trim() || null,
+      staatsangehoerigkeit: $('mb-staat').value.trim() || null
+    }).eq('id', m.id);
+    if(error){ $('mb-fehler').textContent = error.message; return; }
+    schliesseModal();
+    if(m.id === meinKonto?.id) await ladeGrunddaten();
+    await ladeMitarbeiterListe();
+  });
+}
+
+/* ===================== Import ===================== */
+
+function vorlageHerunterladen(){
+  const csv = 'Dienstnummer;Vorname;Nachname;Geburtsdatum;Abteilung;Eintrittsdatum;Taetigkeit;Telefon;Adresse\n'
+            + '126;Max;Mustermann;02.02.2006;Lager;01.03.2024;Staplerfahrer;0660 1234567;Musterstr. 1, 1010 Wien\n';
   const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -471,446 +972,391 @@ function importVorlageHerunterladen(){
   a.click();
 }
 
-function parseDatumFlex(val){
-  if(val===null || val===undefined || val==='') return null;
-  if(val instanceof Date && !isNaN(val)) return val.toISOString().slice(0,10);
-  const s = String(val).trim();
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
-  m = s.match(/^(\d{1,2})[.,/](\d{1,2})[.,/](\d{2,4})$/);
-  if(m){
-    let [,t,mo,j] = m;
-    if(j.length===2) j = '20'+j;
-    return `${j.padStart(4,'0')}-${mo.padStart(2,'0')}-${t.padStart(2,'0')}`;
-  }
-  return null;
-}
-
-let importZeilen = [];
-
-function importDateiAusgewaehlt(e){
-  const datei = e.target.files[0];
-  if(!datei) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const wb = XLSX.read(ev.target.result, { type:'binary', cellDates:true });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rohzeilen = XLSX.utils.sheet_to_json(ws, { defval:'' });
-    verarbeiteImportZeilen(rohzeilen);
-  };
-  reader.readAsBinaryString(datei);
-}
-
-function spaltenWert(zeile, ...namen){
+function spalte(zeile, ...namen){
   const keys = Object.keys(zeile);
-  for(const name of namen){
-    const key = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
-    if(key !== undefined) return zeile[key];
+  for(const n of namen){
+    const k = keys.find(x => x.trim().toLowerCase() === n.toLowerCase());
+    if(k !== undefined) return zeile[k];
   }
   return '';
 }
 
-async function verarbeiteImportZeilen(rohzeilen){
-  const ziel = document.getElementById('import-vorschau');
-  if(!rohzeilen.length){
-    ziel.innerHTML = '<p class="fehler">Die Datei enthält keine Zeilen.</p>';
-    return;
-  }
-  const { data: bestehende } = await sb.from('mitarbeiter').select('vorname,nachname');
-  const bestehendeSet = new Set((bestehende||[]).map(m => (m.vorname+' '+m.nachname).trim().toLowerCase()));
+function importDatei(e){
+  const datei = e.target.files[0];
+  if(!datei) return;
+  const leser = new FileReader();
+  leser.onload = ev => {
+    const wb = XLSX.read(ev.target.result, { type:'binary', cellDates:true });
+    const zeilen = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:'' });
+    importVorschau(zeilen);
+  };
+  leser.readAsBinaryString(datei);
+}
+
+function importVorschau(rohzeilen){
+  const ziel = $('import-vorschau');
+  if(!rohzeilen.length){ ziel.innerHTML = '<p class="fehler">Die Datei enthält keine Zeilen.</p>'; return; }
 
   importZeilen = [];
-  const fehlerZeilen = [];
-  rohzeilen.forEach((z, idx) => {
-    const vorname = String(spaltenWert(z,'Vorname')).trim();
-    const nachname = String(spaltenWert(z,'Nachname')).trim();
-    const abteilung = String(spaltenWert(z,'Abteilung')).trim();
-    const eintrittRoh = spaltenWert(z,'Eintrittsdatum');
-    const austrittRoh = spaltenWert(z,'Austrittsdatum');
-    const korrekturRoh = spaltenWert(z,'Kontokorrektur');
-    const eintritt = parseDatumFlex(eintrittRoh);
-    const austritt = austrittRoh ? parseDatumFlex(austrittRoh) : null;
-    const dupe = bestehendeSet.has((vorname+' '+nachname).trim().toLowerCase());
-
-    if(!vorname || !nachname || !abteilung || !eintritt){
-      fehlerZeilen.push({ zeile: idx+2, grund: !eintritt && eintrittRoh ? `Eintrittsdatum "${eintrittRoh}" nicht lesbar` : 'Vorname, Nachname, Abteilung oder Eintrittsdatum fehlt' });
-      return;
-    }
-    importZeilen.push({
-      vorname, nachname, abteilung, eintrittsdatum: eintritt,
-      austrittsdatum: austritt, kontokorrektur: parseFloat(korrekturRoh) || 0,
-      dupe
-    });
-  });
-
-  let html = '';
-  if(fehlerZeilen.length){
-    html += `<div class="hinweis">${fehlerZeilen.length} Zeile(n) übersprungen: ${fehlerZeilen.map(f=>`Zeile ${f.zeile} (${f.grund})`).join(', ')}</div>`;
-  }
-  if(!importZeilen.length){
-    html += '<p class="fehler">Keine gültigen Zeilen zum Importieren.</p>';
-    ziel.innerHTML = html;
-    return;
-  }
-  const neue = importZeilen.filter(z=>!z.dupe).length;
-  const dupes = importZeilen.filter(z=>z.dupe).length;
-  html += `<div class="block" style="margin-top:1em">
-    <p>${neue} neue Mitarbeiter werden angelegt${dupes?`, ${dupes} bereits vorhandene (gleicher Name) werden übersprungen`:''}.</p>
-    <div class="tabelle-wrapper"><table>
-      <thead><tr><th>Name</th><th>Abteilung</th><th>Eintritt</th><th>Austritt</th><th>Korrektur</th><th>Status</th></tr></thead>
-      <tbody>${importZeilen.map(z=>`<tr>
-        <td>${z.vorname} ${z.nachname}</td><td>${z.abteilung}</td><td>${formatDatum(z.eintrittsdatum)}</td>
-        <td>${z.austrittsdatum?formatDatum(z.austrittsdatum):'—'}</td><td>${z.kontokorrektur}</td>
-        <td>${z.dupe?'<span class="badge status-abgelehnt">existiert schon</span>':'<span class="badge status-genehmigt">neu</span>'}</td>
-      </tr>`).join('')}</tbody></table></div>
-    <button class="knopf" style="margin-top:1em" onclick="importBestaetigen()">${neue} Mitarbeiter importieren</button>
-  </div>`;
-  ziel.innerHTML = html;
-}
-
-async function importBestaetigen(){
-  const neue = importZeilen.filter(z=>!z.dupe).map(({dupe, ...rest})=>rest);
-  if(!neue.length) return;
-  const { error } = await sb.from('mitarbeiter').insert(neue);
-  const ziel = document.getElementById('import-vorschau');
-  if(error){ ziel.innerHTML = `<p class="fehler">${error.message}</p>`; return; }
-  ziel.innerHTML = `<div class="hinweis" style="background:var(--gruen-bg);color:var(--gruen)">${neue.length} Mitarbeiter erfolgreich importiert.</div>`;
-  document.getElementById('import-datei').value = '';
-  importZeilen = [];
-  await ladeMitarbeiterListe();
-}
-
-async function ladeMitarbeiterListe(){
-  const { data, error } = await sb.from('mitarbeiter_uebersicht').select('*').order('vollername');
-  const ziel = document.getElementById('mitarbeiter-liste');
-  if(error){ ziel.innerHTML = error.message; return; }
-  const liste = (data||[]).filter(m => nurAktiveMitarbeiter ? !m.austrittsdatum : true);
-  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
-    <thead><tr><th>Name</th><th>Abteilung</th><th>Eintritt</th><th>Rolle</th><th>Korrektur</th><th>Konto</th><th></th></tr></thead>
-    <tbody>${liste.map(m=>`<tr>
-      <td>${m.vollername}${m.austrittsdatum?' <span class="badge status-abgelehnt">ausgetreten</span>':''}</td>
-      <td>${m.abteilung}</td><td>${formatDatum(m.eintrittsdatum)}</td><td>${m.rolle}</td>
-      <td>${formatZahl(m.kontokorrektur)}</td><td><strong>${formatZahl(m.urlaubskonto)}</strong></td>
-      <td><button class="knopf sekundaer klein" onclick='mitarbeiterBearbeiten(${JSON.stringify(m)})'>Bearbeiten</button></td>
-    </tr>`).join('')}</tbody></table></div>`;
-}
-
-function nmFelderAnpassen(){
-  const mitarbeiterRolle = document.getElementById('nm-rolle').value === 'mitarbeiter';
-  document.getElementById('nm-feld-dienstnummer').hidden = !mitarbeiterRolle;
-  document.getElementById('nm-feld-geburtsdatum').hidden = !mitarbeiterRolle;
-  document.getElementById('nm-feld-email').hidden = mitarbeiterRolle;
-  document.getElementById('nm-hinweis').textContent = mitarbeiterRolle
-    ? 'Dienstnummer + Geburtsdatum werden automatisch der Login-Code des Mitarbeiters.'
-    : 'Für diese E-Mail-Adresse muss in Supabase unter Authentication → Users ein Zugang mit Passwort angelegt sein.';
-}
-
-async function neuerMitarbeiterAbsenden(e){
-  e.preventDefault();
-  const fehlerEl = document.getElementById('nm-fehler');
-  fehlerEl.textContent = '';
-  const rolle = document.getElementById('nm-rolle').value;
-  const vorname = document.getElementById('nm-vorname').value.trim();
-  const nachname = document.getElementById('nm-nachname').value.trim();
-  const abteilung = document.getElementById('nm-abteilung').value;
-  const eintrittsdatum = document.getElementById('nm-eintritt').value;
-
-  if(rolle === 'mitarbeiter'){
-    const dienstnummer = document.getElementById('nm-dienstnummer').value.trim();
-    const geburtsdatum = document.getElementById('nm-geburtsdatum').value;
-    if(!dienstnummer || !geburtsdatum){ fehlerEl.textContent = 'Dienstnummer und Geburtsdatum sind nötig.'; return; }
-    const { data: { session } } = await sb.auth.getSession();
-    const resp = await fetch(`${SUPABASE_URL}/functions/v1/mitarbeiter-anlegen`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-      body: JSON.stringify({ dienstnummer, geburtsdatum, vorname, nachname, abteilung, eintrittsdatum, rolle })
-    });
-    const ergebnis = await resp.json();
-    if(!resp.ok || ergebnis.error){ fehlerEl.textContent = ergebnis.error || 'Anlegen fehlgeschlagen'; return; }
-  } else {
-    const email = document.getElementById('nm-email').value.trim();
-    if(!email){ fehlerEl.textContent = 'E-Mail ist nötig.'; return; }
-    const { error } = await sb.from('mitarbeiter').insert({ email, vorname, nachname, abteilung, eintrittsdatum, rolle });
-    if(error){ fehlerEl.textContent = error.message; return; }
-  }
-
-  document.getElementById('neuer-mitarbeiter-form').reset();
-  nmFelderAnpassen();
-  await ladeMitarbeiterListe();
-}
-
-function mitarbeiterBearbeiten(m){
-  zeigeModal(`
-    <h2>${m.vollername} bearbeiten</h2>
-    <form id="mb-form" class="formular-reihe">
-      <div class="feld"><label>Abteilung</label>
-        <select id="mb-abteilung">${abteilungenListe.map(a=>`<option ${a===m.abteilung?'selected':''}>${a}</option>`).join('')}</select>
-      </div>
-      <div class="feld"><label>Rolle</label>
-        <select id="mb-rolle">
-          <option value="mitarbeiter" ${m.rolle==='mitarbeiter'?'selected':''}>Mitarbeiter</option>
-          <option value="verwalter" ${m.rolle==='verwalter'?'selected':''}>Verwalter</option>
-        </select>
-      </div>
-      <div class="feld"><label>Kontokorrektur</label><input id="mb-korrektur" type="number" step="0.01" value="${m.kontokorrektur}"></div>
-      <div class="feld"><label>Austrittsdatum</label><input id="mb-austritt" type="date" value="${m.austrittsdatum||''}"></div>
-      <p class="fehler" id="mb-fehler"></p>
-      <div style="display:flex;gap:.6em;margin-top:.5em">
-        <button class="knopf" type="submit">Speichern</button>
-        <button class="knopf sekundaer" type="button" onclick="schliesseModal()">Abbrechen</button>
-      </div>
-    </form>`);
-  document.getElementById('mb-form').addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const payload = {
-      abteilung: document.getElementById('mb-abteilung').value,
-      rolle: document.getElementById('mb-rolle').value,
-      kontokorrektur: parseFloat(document.getElementById('mb-korrektur').value) || 0,
-      austrittsdatum: document.getElementById('mb-austritt').value || null
+  const probleme = [];
+  rohzeilen.forEach((z, i) => {
+    const eintrag = {
+      dienstnummer: String(spalte(z,'Dienstnummer','Nr')).trim(),
+      vorname: String(spalte(z,'Vorname')).trim(),
+      nachname: String(spalte(z,'Nachname')).trim(),
+      geburtsdatum: parseDatumFlex(spalte(z,'Geburtsdatum')),
+      abteilung: String(spalte(z,'Abteilung')).trim(),
+      eintrittsdatum: parseDatumFlex(spalte(z,'Eintrittsdatum','Eintritt')),
+      austrittsdatum: parseDatumFlex(spalte(z,'Austrittsdatum','Austritt')),
+      taetigkeit: String(spalte(z,'Taetigkeit','Tätigkeit','Position')).trim(),
+      telefon: String(spalte(z,'Telefon')).trim(),
+      adresse: String(spalte(z,'Adresse')).trim()
     };
-    const { error } = await sb.from('mitarbeiter').update(payload).eq('id', m.id);
-    if(error){ document.getElementById('mb-fehler').textContent = error.message; return; }
-    schliesseModal();
-    if(m.email === ich.email) await ladeGrunddaten();
-    await ladeMitarbeiterListe();
+    const fehlt = ['dienstnummer','vorname','nachname','geburtsdatum','abteilung','eintrittsdatum']
+      .filter(f => !eintrag[f]);
+    if(fehlt.length){ probleme.push(`Zeile ${i+2}: ${fehlt.join(', ')} fehlt oder ist unlesbar`); return; }
+    if(!abteilungen.includes(eintrag.abteilung)){
+      probleme.push(`Zeile ${i+2}: Abteilung „${eintrag.abteilung}" gibt es nicht`); return;
+    }
+    importZeilen.push(eintrag);
   });
+
+  ziel.innerHTML = `
+    ${probleme.length ? `<div class="hinweis">${probleme.length} Zeile(n) übersprungen:<br>${probleme.map(esc).join('<br>')}</div>` : ''}
+    ${importZeilen.length ? `
+      <div class="tabelle-wrapper"><table>
+        <thead><tr><th>Nr.</th><th>Name</th><th>Geburtsdatum</th><th>Abteilung</th><th>Eintritt</th><th>Code</th></tr></thead>
+        <tbody>${importZeilen.map(z => {
+          const [j,m,t] = z.geburtsdatum.split('-');
+          return `<tr><td>${esc(z.dienstnummer)}</td><td>${esc(z.vorname)} ${esc(z.nachname)}</td>
+            <td>${formatDatum(z.geburtsdatum)}</td><td>${esc(z.abteilung)}</td>
+            <td>${formatDatum(z.eintrittsdatum)}</td><td>${esc(z.dienstnummer+t+m+j.slice(-2))}</td></tr>`;
+        }).join('')}</tbody></table></div>
+      <button class="knopf" style="margin-top:1em" id="import-start">${importZeilen.length} Mitarbeiter anlegen</button>
+      <div id="import-ergebnis"></div>`
+      : '<p class="fehler">Keine gültigen Zeilen zum Importieren.</p>'}`;
+
+  const knopf = $('import-start');
+  if(knopf) knopf.addEventListener('click', importStarten);
 }
 
-async function renderFeiertage(){
-  const el = document.getElementById('tab-feiertage');
-  el.innerHTML = `
+async function importStarten(){
+  const knopf = $('import-start');
+  knopf.disabled = true;
+  const ergebnisse = [];
+  for(const z of importZeilen){
+    knopf.textContent = `Lege an … (${ergebnisse.length+1}/${importZeilen.length})`;
+    try { await edgeAufruf('mitarbeiter-anlegen', z); ergebnisse.push({ ok:true, z }); }
+    catch(err){ ergebnisse.push({ ok:false, z, fehler: err.message }); }
+  }
+  const fehlgeschlagen = ergebnisse.filter(r => !r.ok);
+  $('import-ergebnis').innerHTML = `
+    <div class="erfolg" style="margin-top:1em">${ergebnisse.length - fehlgeschlagen.length} von ${ergebnisse.length} angelegt.</div>
+    ${fehlgeschlagen.length ? `<div class="hinweis">${fehlgeschlagen.map(r =>
+      `${esc(r.z.vorname)} ${esc(r.z.nachname)}: ${esc(r.fehler)}`).join('<br>')}</div>` : ''}`;
+  knopf.hidden = true;
+  importZeilen = [];
+  $('import-datei').value = '';
+  await ladeMitarbeiterListe();
+}
+
+/* ===================== Auswertung ===================== */
+
+async function renderAuswertung(){
+  const jahr = new Date().getFullYear();
+  const [{ data: leute }, { data: abw }] = await Promise.all([
+    sb.from('mitarbeiter_uebersicht').select('*').order('vollername'),
+    sb.from('abwesenheiten')
+      .select('mitarbeiter_id,art,von,bis,werktage,status')
+      .eq('status','genehmigt')
+  ]);
+  const aktive = (leute||[]).filter(m => !m.austrittsdatum);
+  const nachId = new Map((leute||[]).map(m => [m.id, m]));
+
+  // Abteilungs-Summen
+  const proAbteilung = new Map();
+  aktive.forEach(m => {
+    const e = proAbteilung.get(m.abteilung) || { anzahl:0, anspruch:0, urlaub:0, krank:0, sonstige:0, rest:0 };
+    e.anzahl++;
+    e.anspruch += Number(m.urlaubsanspruch||0);
+    e.urlaub   += Number(m.konsumiert||0);
+    e.krank    += Number(m.krank||0);
+    e.sonstige += Number(m.sonstige||0);
+    e.rest     += Number(m.urlaubskonto||0);
+    proAbteilung.set(m.abteilung, e);
+  });
+
+  // Krankenstand
+  const krank = new Map();
+  (abw||[]).filter(a => a.art === 'Krank').forEach(a => {
+    const e = krank.get(a.mitarbeiter_id) || { tage:0, faelle:0, tageJahr:0, faelleJahr:0 };
+    e.tage += Number(a.werktage||0); e.faelle++;
+    if(a.von.slice(0,4) === String(jahr)){ e.tageJahr += Number(a.werktage||0); e.faelleJahr++; }
+    krank.set(a.mitarbeiter_id, e);
+  });
+  const krankListe = [...krank.entries()]
+    .map(([id,e]) => ({ person: nachId.get(id), ...e }))
+    .filter(x => x.person)
+    .sort((a,b) => b.tage - a.tage);
+
+  $('inhalt').innerHTML = `
     <div class="block">
-      <h2>Feiertag hinzufügen</h2>
-      <form id="neuer-feiertag-form" class="formular-reihe">
-        <div class="feld"><label>Datum</label><input id="nf-datum" type="date" required></div>
-        <div class="feld"><label>Bezeichnung</label><input id="nf-bezeichnung" required></div>
-        <button class="knopf" type="submit">Hinzufügen</button>
-      </form>
-      <p class="fehler" id="nf-fehler"></p>
+      <h2>Nach Abteilung</h2>
+      <div class="tabelle-wrapper"><table>
+        <thead><tr><th>Abteilung</th><th class="zahl-spalte">Mitarbeiter</th><th class="zahl-spalte">Anspruch</th>
+          <th class="zahl-spalte">Urlaub verbraucht</th><th class="zahl-spalte">Krank</th>
+          <th class="zahl-spalte">Sonstige</th><th class="zahl-spalte">Resturlaub</th></tr></thead>
+        <tbody>${[...proAbteilung.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,e]) => `<tr>
+          <td>${esc(name)}</td><td class="zahl-spalte">${e.anzahl}</td>
+          <td class="zahl-spalte">${formatZahl(e.anspruch,0)}</td>
+          <td class="zahl-spalte">${formatZahl(e.urlaub,0)}</td>
+          <td class="zahl-spalte">${formatZahl(e.krank,0)}</td>
+          <td class="zahl-spalte">${formatZahl(e.sonstige,0)}</td>
+          <td class="zahl-spalte"><strong>${formatZahl(e.rest,0)}</strong></td></tr>`).join('')}</tbody>
+      </table></div>
     </div>
+
     <div class="block">
-      <h2>Feiertage</h2>
-      <div id="feiertage-liste"></div>
+      <h2>Krankenstand</h2>
+      ${krankListe.length ? `<div class="tabelle-wrapper"><table>
+        <thead><tr><th>Mitarbeiter</th><th>Abteilung</th>
+          <th class="zahl-spalte">Tage ${jahr}</th><th class="zahl-spalte">Fälle ${jahr}</th>
+          <th class="zahl-spalte">Tage gesamt</th><th class="zahl-spalte">Fälle gesamt</th></tr></thead>
+        <tbody>${krankListe.map(k => `<tr>
+          <td>${esc(k.person.vollername)}</td><td>${esc(k.person.abteilung)}</td>
+          <td class="zahl-spalte">${formatZahl(k.tageJahr,0)}</td><td class="zahl-spalte">${k.faelleJahr}</td>
+          <td class="zahl-spalte">${formatZahl(k.tage,0)}</td><td class="zahl-spalte">${k.faelle}</td>
+        </tr>`).join('')}</tbody></table></div>` : '<p class="leer">Noch keine Krankmeldungen erfasst.</p>'}
+    </div>
+
+    <div class="block">
+      <h2>Urlaubskonten</h2>
+      <div class="tabelle-wrapper"><table>
+        <thead><tr><th>Mitarbeiter</th><th>Abteilung</th><th class="zahl-spalte">Anspruch</th>
+          <th class="zahl-spalte">Verbraucht</th><th class="zahl-spalte">Korrektur</th><th class="zahl-spalte">Rest</th></tr></thead>
+        <tbody>${aktive.map(m => `<tr>
+          <td>${esc(m.vollername)}</td><td>${esc(m.abteilung)}</td>
+          <td class="zahl-spalte">${formatZahl(m.urlaubsanspruch)}</td>
+          <td class="zahl-spalte">${formatZahl(m.konsumiert)}</td>
+          <td class="zahl-spalte">${formatZahl(m.kontokorrektur)}</td>
+          <td class="zahl-spalte"><strong>${formatZahl(m.urlaubskonto)}</strong></td>
+        </tr>`).join('')}</tbody></table></div>
     </div>`;
-  document.getElementById('neuer-feiertag-form').addEventListener('submit', neuerFeiertagAbsenden);
-  await ladeFeiertageListe();
 }
 
-async function ladeFeiertageListe(){
-  const { data, error } = await sb.from('feiertage').select('*').order('datum');
-  const ziel = document.getElementById('feiertage-liste');
-  if(error){ ziel.innerHTML = error.message; return; }
-  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
-    <thead><tr><th>Datum</th><th>Bezeichnung</th><th></th></tr></thead>
-    <tbody>${data.map(f=>`<tr>
-      <td>${formatDatum(f.datum)}</td><td>${f.bezeichnung}</td>
-      <td><button class="knopf gefahr klein" onclick="feiertagLoeschen('${f.id}')">Löschen</button></td>
-    </tr>`).join('')}</tbody></table></div>`;
-}
+/* ===================== Dokument ===================== */
 
-async function neuerFeiertagAbsenden(e){
-  e.preventDefault();
-  const datum = document.getElementById('nf-datum').value;
-  const bezeichnung = document.getElementById('nf-bezeichnung').value.trim();
-  const fehlerEl = document.getElementById('nf-fehler');
-  fehlerEl.textContent = '';
-  const { error } = await sb.from('feiertage').insert({ datum, bezeichnung });
-  if(error){ fehlerEl.textContent = error.message; return; }
-  document.getElementById('neuer-feiertag-form').reset();
-  feiertageSet.add(datum);
-  await ladeFeiertageListe();
-}
-
-async function feiertagLoeschen(id){
-  if(!confirm('Diesen Feiertag wirklich löschen?')) return;
-  await sb.from('feiertage').delete().eq('id', id);
-  await ladeGrunddaten();
-  await ladeFeiertageListe();
-}
-
-let dokumentMitarbeiterListe = [];
-const DOK_ART_LABEL = { einstellung:'Neuer Mitarbeiter', kuendigung:'Kündigung', krankmeldung:'Krankmeldung', urlaubsantrag:'Urlaubsantrag', unbekannt:'Unbekannt' };
+let dokLeute = [];
 
 async function renderDokument(){
-  const el = document.getElementById('tab-dokument');
-  const { data } = await sb.from('mitarbeiter').select('id,vorname,nachname').is('austrittsdatum', null).order('vorname');
-  dokumentMitarbeiterListe = data || [];
-  el.innerHTML = `
+  const { data } = await sb.from('mitarbeiter_uebersicht')
+    .select('id,vollername,vorname,nachname,austrittsdatum').order('vollername');
+  dokLeute = (data||[]).filter(m => !m.austrittsdatum);
+
+  $('inhalt').innerHTML = `
     <div class="block">
-      <h2>Dokument hochladen und lesen lassen</h2>
-      <p style="color:var(--muted);font-size:.9rem">PDF oder Foto eines Vertrags, einer Kündigung, Krankmeldung oder eines Urlaubsantrags. Die KI schlägt die Daten vor – nichts wird gespeichert, bevor du „Übernehmen" klickst.</p>
+      <h2>Dokument hochladen und auslesen</h2>
+      <p class="leer">PDF oder Foto einer Anmeldung, Kündigung, Krankmeldung oder eines Urlaubsantrags. Die Erkennung macht nur einen Vorschlag – gespeichert wird erst, wenn du auf „Übernehmen" klickst.</p>
       <div class="formular-reihe">
         <input id="dok-datei" type="file" accept=".pdf,image/*">
-        <button class="knopf" type="button" id="dok-lesen-knopf">Lesen lassen</button>
+        <button class="knopf" type="button" id="dok-lesen">Auslesen</button>
       </div>
       <p class="fehler" id="dok-fehler"></p>
       <div id="dok-ergebnis"></div>
     </div>`;
-  document.getElementById('dok-lesen-knopf').addEventListener('click', dokumentLesen);
+  $('dok-lesen').addEventListener('click', dokumentLesen);
 }
 
 function dateiZuBase64(datei){
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(datei);
+    const leser = new FileReader();
+    leser.onload = () => resolve(leser.result.split(',')[1]);
+    leser.onerror = reject;
+    leser.readAsDataURL(datei);
   });
 }
 
 async function dokumentLesen(){
-  const input = document.getElementById('dok-datei');
-  const datei = input.files[0];
-  const fehlerEl = document.getElementById('dok-fehler');
-  fehlerEl.textContent = '';
-  document.getElementById('dok-ergebnis').innerHTML = '';
-  if(!datei){ fehlerEl.textContent = 'Bitte eine Datei auswählen.'; return; }
-  const knopf = document.getElementById('dok-lesen-knopf');
-  knopf.disabled = true; knopf.textContent = 'Lese...';
-  try{
-    const dateiBase64 = await dateiZuBase64(datei);
-    const { data, error } = await sb.functions.invoke('hyper-handler', { body: { dateiBase64, mediaType: datei.type } });
-    if(error) throw error;
-    if(data.error) throw new Error(data.error);
-    zeigeDokumentErgebnis(data);
-  }catch(e){
-    fehlerEl.textContent = 'Fehler beim Lesen: ' + (e.message || e);
-  }finally{
-    knopf.disabled = false; knopf.textContent = 'Lesen lassen';
+  const datei = $('dok-datei').files[0];
+  const fehler = $('dok-fehler');
+  fehler.textContent = ''; $('dok-ergebnis').innerHTML = '';
+  if(!datei){ fehler.textContent = 'Bitte zuerst eine Datei auswählen.'; return; }
+  const knopf = $('dok-lesen');
+  knopf.disabled = true; knopf.textContent = 'Lese …';
+  try {
+    const ergebnis = await edgeAufruf('hyper-handler', {
+      dateiBase64: await dateiZuBase64(datei), mediaType: datei.type
+    });
+    dokumentErgebnis(ergebnis);
+  } catch(err){
+    fehler.textContent = 'Auslesen fehlgeschlagen: ' + err.message;
+  } finally {
+    knopf.disabled = false; knopf.textContent = 'Auslesen';
   }
 }
 
-function zeigeDokumentErgebnis(d){
-  const art = DOK_ART_LABEL[d.art] ? d.art : 'unbekannt';
-  const gefunden = dokumentMitarbeiterListe.find(m =>
-    (m.vorname||'').trim().toLowerCase() === (d.vorname||'').trim().toLowerCase() &&
-    (m.nachname||'').trim().toLowerCase() === (d.nachname||'').trim().toLowerCase());
+const DOK_ARTEN = {
+  einstellung:'Neuer Mitarbeiter', kuendigung:'Kündigung',
+  krankmeldung:'Krankmeldung', urlaubsantrag:'Urlaubsantrag', unbekannt:'Unbekannt'
+};
 
-  document.getElementById('dok-ergebnis').innerHTML = `
-    <div class="block" style="margin-top:1em">
-      ${d.sicherheit==='niedrig' || art==='unbekannt' ? `<div class="hinweis">Die KI ist sich unsicher${d.hinweis?(': '+d.hinweis):''}. Bitte besonders genau prüfen oder manuell im passenden Reiter eintragen.</div>` : ''}
-      <form id="dok-form" class="formular-reihe">
+function dokumentErgebnis(d){
+  const art = DOK_ARTEN[d.art] ? d.art : 'unbekannt';
+  const treffer = dokLeute.find(m =>
+    m.vorname.trim().toLowerCase() === String(d.vorname||'').trim().toLowerCase() &&
+    m.nachname.trim().toLowerCase() === String(d.nachname||'').trim().toLowerCase());
+
+  $('dok-ergebnis').innerHTML = `
+    <div class="block" style="margin-top:1em;box-shadow:none;border:1px solid var(--rand)">
+      ${(d.sicherheit === 'niedrig' || art === 'unbekannt')
+        ? `<div class="hinweis">Die Erkennung ist unsicher${d.hinweis ? ': '+esc(d.hinweis) : ''}. Bitte genau prüfen.</div>` : ''}
+      <div class="formular-gitter">
         <div class="feld"><label>Art</label>
-          <select id="dok-art">${Object.entries(DOK_ART_LABEL).map(([k,v])=>`<option value="${k}" ${k===art?'selected':''}>${v}</option>`).join('')}</select>
-        </div>
-        <div class="feld" id="dok-feld-mitarbeiter" style="min-width:220px"><label>Mitarbeiter</label>
-          <select id="dok-mitarbeiter">
-            <option value="">— auswählen —</option>
-            ${dokumentMitarbeiterListe.map(m=>`<option value="${m.id}" ${gefunden&&gefunden.id===m.id?'selected':''}>${m.vorname} ${m.nachname}</option>`).join('')}
-          </select>
-        </div>
-        <div class="feld" id="dok-feld-vorname"><label>Vorname</label><input id="dok-vorname" value="${d.vorname||''}"></div>
-        <div class="feld" id="dok-feld-nachname"><label>Nachname</label><input id="dok-nachname" value="${d.nachname||''}"></div>
-        <div class="feld" id="dok-feld-abteilung"><label>Abteilung</label>
-          <select id="dok-abteilung">${abteilungenListe.map(a=>`<option ${a===d.abteilung?'selected':''}>${a}</option>`).join('')}</select>
-        </div>
-        <div class="feld" id="dok-feld-von"><label id="dok-label-von">Datum</label><input id="dok-von" type="date" value="${d.datum_von||''}"></div>
-        <div class="feld" id="dok-feld-bis"><label>Bis</label><input id="dok-bis" type="date" value="${d.datum_bis||''}"></div>
-        <button class="knopf" type="submit">Übernehmen</button>
-      </form>
-      <p class="fehler" id="dok-uebernehmen-fehler"></p>
+          <select id="dok-art">${Object.entries(DOK_ARTEN).map(([k,v]) =>
+            `<option value="${k}" ${k===art?'selected':''}>${v}</option>`).join('')}</select></div>
+        <div class="feld" id="dok-f-person"><label>Mitarbeiter</label>
+          <select id="dok-person"><option value="">— auswählen —</option>
+            ${dokLeute.map(m => `<option value="${m.id}" ${treffer&&treffer.id===m.id?'selected':''}>${esc(m.vollername)}</option>`).join('')}
+          </select></div>
+        <div class="feld" id="dok-f-vorname"><label>Vorname</label><input id="dok-vorname" value="${esc(d.vorname||'')}"></div>
+        <div class="feld" id="dok-f-nachname"><label>Nachname</label><input id="dok-nachname" value="${esc(d.nachname||'')}"></div>
+        <div class="feld" id="dok-f-dienstnummer"><label>Dienstnummer</label><input id="dok-dienstnummer" inputmode="numeric"></div>
+        <div class="feld" id="dok-f-geburtsdatum"><label>Geburtsdatum</label><input id="dok-geburtsdatum" type="date"></div>
+        <div class="feld" id="dok-f-abteilung"><label>Abteilung</label>
+          <select id="dok-abteilung">${abteilungen.map(a =>
+            `<option ${a===d.abteilung?'selected':''}>${esc(a)}</option>`).join('')}</select></div>
+        <div class="feld" id="dok-f-von"><label id="dok-label-von">Datum</label><input id="dok-von" type="date" value="${esc(d.datum_von||'')}"></div>
+        <div class="feld" id="dok-f-bis"><label>Bis</label><input id="dok-bis" type="date" value="${esc(d.datum_bis||'')}"></div>
+      </div>
+      <button class="knopf" id="dok-uebernehmen">Übernehmen</button>
+      <p class="fehler" id="dok-u-fehler"></p>
+      <div id="dok-u-erfolg"></div>
     </div>`;
 
-  dokumentFelderAnpassen();
-  document.getElementById('dok-art').addEventListener('change', dokumentFelderAnpassen);
-  document.getElementById('dok-form').addEventListener('submit', dokumentUebernehmen);
+  dokFelder();
+  $('dok-art').addEventListener('change', dokFelder);
+  $('dok-uebernehmen').addEventListener('click', dokumentUebernehmen);
 }
 
-function dokumentFelderAnpassen(){
-  const art = document.getElementById('dok-art').value;
-  const zeig = (id, an) => { document.getElementById(id).style.display = an ? '' : 'none'; };
-  zeig('dok-feld-mitarbeiter', art !== 'einstellung');
-  zeig('dok-feld-vorname', art === 'einstellung');
-  zeig('dok-feld-nachname', art === 'einstellung');
-  zeig('dok-feld-abteilung', art === 'einstellung');
-  zeig('dok-feld-von', art !== 'unbekannt');
-  zeig('dok-feld-bis', art === 'urlaubsantrag' || art === 'krankmeldung');
-  document.getElementById('dok-label-von').textContent =
-    art==='einstellung' ? 'Eintrittsdatum' : art==='kuendigung' ? 'Austrittsdatum' : 'Von';
+function dokFelder(){
+  const art = $('dok-art').value;
+  const neu = art === 'einstellung';
+  const abwesenheit = art === 'krankmeldung' || art === 'urlaubsantrag';
+  const zeig = (id, an) => { $(id).hidden = !an; };
+  zeig('dok-f-person', !neu && art !== 'unbekannt');
+  zeig('dok-f-vorname', neu); zeig('dok-f-nachname', neu);
+  zeig('dok-f-dienstnummer', neu); zeig('dok-f-geburtsdatum', neu); zeig('dok-f-abteilung', neu);
+  zeig('dok-f-von', art !== 'unbekannt');
+  zeig('dok-f-bis', abwesenheit);
+  $('dok-label-von').textContent = neu ? 'Eintrittsdatum' : art === 'kuendigung' ? 'Austrittsdatum' : 'Von';
 }
 
-async function dokumentUebernehmen(e){
-  e.preventDefault();
-  const art = document.getElementById('dok-art').value;
-  const fehlerEl = document.getElementById('dok-uebernehmen-fehler');
-  fehlerEl.textContent = '';
+async function dokumentUebernehmen(){
+  const art = $('dok-art').value;
+  const fehler = $('dok-u-fehler');
+  fehler.textContent = ''; $('dok-u-erfolg').innerHTML = '';
 
-  if(art === 'einstellung'){
-    const vorname = document.getElementById('dok-vorname').value.trim();
-    const nachname = document.getElementById('dok-nachname').value.trim();
-    const abteilung = document.getElementById('dok-abteilung').value;
-    const eintrittsdatum = document.getElementById('dok-von').value;
-    if(!vorname || !nachname || !eintrittsdatum){ fehlerEl.textContent = 'Vorname, Nachname und Eintrittsdatum sind nötig.'; return; }
-    const { error } = await sb.from('mitarbeiter').insert({ vorname, nachname, abteilung, eintrittsdatum });
-    if(error){ fehlerEl.textContent = error.message; return; }
-  } else if(art === 'kuendigung'){
-    const mitarbeiterId = document.getElementById('dok-mitarbeiter').value;
-    const austrittsdatum = document.getElementById('dok-von').value;
-    if(!mitarbeiterId || !austrittsdatum){ fehlerEl.textContent = 'Mitarbeiter und Austrittsdatum auswählen.'; return; }
-    const { error } = await sb.from('mitarbeiter').update({ austrittsdatum }).eq('id', mitarbeiterId);
-    if(error){ fehlerEl.textContent = error.message; return; }
-  } else if(art === 'krankmeldung' || art === 'urlaubsantrag'){
-    const mitarbeiterId = document.getElementById('dok-mitarbeiter').value;
-    const von = document.getElementById('dok-von').value;
-    const bis = document.getElementById('dok-bis').value || von;
-    if(!mitarbeiterId || !von){ fehlerEl.textContent = 'Mitarbeiter und Datum auswählen.'; return; }
-    const werktage = werktageZaehlen(von, bis);
-    if(werktage<=0){ fehlerEl.textContent = 'Der Zeitraum enthält keinen Werktag.'; return; }
-    const { error } = await sb.from('abwesenheiten').insert({
-      mitarbeiter_id: mitarbeiterId, art: art==='krankmeldung'?'Krank':'Urlaub', von, bis, werktage, status:'offen'
-    });
-    if(error){ fehlerEl.textContent = error.message; return; }
-  } else {
-    fehlerEl.textContent = 'Art unbekannt – bitte manuell im passenden Reiter eintragen.';
-    return;
+  try {
+    if(art === 'einstellung'){
+      const ergebnis = await edgeAufruf('mitarbeiter-anlegen', {
+        dienstnummer: $('dok-dienstnummer').value.trim(),
+        geburtsdatum: $('dok-geburtsdatum').value,
+        vorname: $('dok-vorname').value.trim(),
+        nachname: $('dok-nachname').value.trim(),
+        abteilung: $('dok-abteilung').value,
+        eintrittsdatum: $('dok-von').value
+      });
+      $('dok-u-erfolg').innerHTML = `<div class="erfolg">Mitarbeiter angelegt. Anmelde-Code: <strong>${esc(ergebnis.code)}</strong></div>`;
+
+    } else if(art === 'kuendigung'){
+      const id = $('dok-person').value;
+      const austritt = $('dok-von').value;
+      if(!id || !austritt) throw new Error('Bitte Mitarbeiter und Austrittsdatum angeben.');
+      const { error } = await sb.from('mitarbeiter').update({ austrittsdatum: austritt }).eq('id', id);
+      if(error) throw new Error(error.message);
+      $('dok-u-erfolg').innerHTML = `<div class="erfolg">Austrittsdatum gespeichert.</div>`;
+
+    } else if(art === 'krankmeldung' || art === 'urlaubsantrag'){
+      const id = $('dok-person').value;
+      const von = $('dok-von').value;
+      const bis = $('dok-bis').value || von;
+      if(!id || !von) throw new Error('Bitte Mitarbeiter und Zeitraum angeben.');
+      const werktage = werktageZaehlen(von, bis);
+      if(werktage <= 0) throw new Error('In diesem Zeitraum liegt kein Werktag.');
+      const { error } = await sb.from('abwesenheiten').insert({
+        mitarbeiter_id: id, art: art === 'krankmeldung' ? 'Krank' : 'Urlaub',
+        von, bis, werktage, status: 'offen'
+      });
+      if(error) throw new Error(error.message);
+      $('dok-u-erfolg').innerHTML = `<div class="erfolg">Als offener Antrag eingetragen – noch im Reiter „Anträge" genehmigen.</div>`;
+
+    } else {
+      throw new Error('Art unbekannt – bitte manuell im passenden Reiter eintragen.');
+    }
+
+    $('dok-datei').value = '';
+  } catch(err){
+    fehler.textContent = err.message;
   }
-
-  document.getElementById('dok-ergebnis').innerHTML = `<div class="hinweis" style="background:var(--gruen-bg);color:var(--gruen)">Übernommen${art==='krankmeldung'||art==='urlaubsantrag'?' – als offener Antrag, muss noch genehmigt werden.':''}.</div>`;
-  document.getElementById('dok-datei').value = '';
 }
 
-document.querySelectorAll('#rollen-umschalter button').forEach(b=>{
-  b.addEventListener('click', ()=>{
-    document.querySelectorAll('#rollen-umschalter button').forEach(x=>x.classList.toggle('rolle-aktiv', x===b));
-    document.getElementById('login-form-mitarbeiter').hidden = b.dataset.rolle !== 'mitarbeiter';
-    document.getElementById('login-form-verwalter').hidden = b.dataset.rolle !== 'verwalter';
+/* ===================== Feiertage ===================== */
+
+let feiertagJahr = new Date().getFullYear();
+
+async function renderFeiertage(){
+  const jahre = [...new Set([...feiertage.keys()].map(d => Number(d.slice(0,4))))].sort((a,b)=>b-a);
+  $('inhalt').innerHTML = `
+    <div class="block">
+      <h2>Feiertag hinzufügen</h2>
+      <form id="ft-form" class="formular-reihe">
+        <div class="feld"><label>Datum</label><input id="ft-datum" type="date" required></div>
+        <div class="feld" style="min-width:200px"><label>Bezeichnung</label><input id="ft-name" required></div>
+        <button class="knopf" type="submit">Hinzufügen</button>
+      </form>
+      <p class="fehler" id="ft-fehler"></p>
+    </div>
+    <div class="block">
+      <div class="block-kopf">
+        <h2>Feiertage</h2>
+        <div class="feld"><select id="ft-jahr">${jahre.map(j=>`<option ${j===feiertagJahr?'selected':''}>${j}</option>`).join('')}</select></div>
+      </div>
+      <div id="ft-liste"></div>
+    </div>`;
+  $('ft-form').addEventListener('submit', feiertagHinzufuegen);
+  $('ft-jahr').addEventListener('change', e => { feiertagJahr = Number(e.target.value); ladeFeiertagsListe(); });
+  await ladeFeiertagsListe();
+}
+
+async function ladeFeiertagsListe(){
+  const { data } = await sb.from('feiertage').select('*')
+    .gte('datum', `${feiertagJahr}-01-01`).lte('datum', `${feiertagJahr}-12-31`).order('datum');
+  const ziel = $('ft-liste');
+  if(!data || !data.length){ ziel.innerHTML = '<p class="leer">Für dieses Jahr sind keine Feiertage hinterlegt.</p>'; return; }
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Datum</th><th>Bezeichnung</th><th></th></tr></thead>
+    <tbody>${data.map(f => `<tr><td>${formatDatum(f.datum)}</td><td>${esc(f.bezeichnung)}</td>
+      <td><button class="knopf gefahr klein" data-ft="${f.id}">Löschen</button></td></tr>`).join('')}</tbody>
+  </table></div>`;
+  ziel.querySelectorAll('[data-ft]').forEach(b => b.addEventListener('click', async () => {
+    if(!confirm('Diesen Feiertag wirklich löschen?')) return;
+    await sb.from('feiertage').delete().eq('id', b.dataset.ft);
+    await ladeGrunddaten();
+    await ladeFeiertagsListe();
+  }));
+}
+
+async function feiertagHinzufuegen(e){
+  e.preventDefault();
+  const fehler = $('ft-fehler'); fehler.textContent = '';
+  const { error } = await sb.from('feiertage').insert({
+    datum: $('ft-datum').value, bezeichnung: $('ft-name').value.trim()
   });
-});
-
-document.getElementById('login-form-mitarbeiter').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const fehlerEl = document.getElementById('login-fehler-mitarbeiter');
-  fehlerEl.textContent = '';
-  const code = document.getElementById('login-code').value.replace(/\D/g,'');
-  if(code.length <= 6){ fehlerEl.textContent = 'Code ist zu kurz.'; return; }
-  const dienstnummer = code.slice(0, -6);
-  const password = code.slice(-6);
-  const email = `ma${dienstnummer}@dienst.intern`;
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if(error){ fehlerEl.textContent = 'Code stimmt nicht.'; return; }
-  await angemeldet(data.user);
-});
-
-document.getElementById('login-form-verwalter').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const email = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-pass').value;
-  const fehlerEl = document.getElementById('login-fehler-verwalter');
-  fehlerEl.textContent = '';
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if(error){ fehlerEl.textContent = 'Anmeldung fehlgeschlagen: ' + error.message; return; }
-  await angemeldet(data.user);
-});
-
-document.getElementById('abmelden').addEventListener('click', async ()=>{
-  await sb.auth.signOut();
-  ich = null; meinMitarbeiter = null;
-  zeigeLogin();
-});
-
-document.querySelectorAll('#tabs button').forEach(b=>{
-  b.addEventListener('click', ()=> tabWechseln(b.dataset.tab));
-});
+  if(error){ fehler.textContent = error.message; return; }
+  $('ft-form').reset();
+  await ladeGrunddaten();
+  await ladeFeiertagsListe();
+}
 
 init();
 </script>
