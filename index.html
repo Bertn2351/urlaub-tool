@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
   --bg:#f3f5f8; --karte:#ffffff; --text:#1b2430; --muted:#67748b;
@@ -108,12 +109,14 @@ tr:last-child td{border-bottom:none}
     <button data-tab="antraege">Anträge</button>
     <button data-tab="mitarbeiter" class="nur-verwalter" hidden>Mitarbeiter</button>
     <button data-tab="feiertage" class="nur-verwalter" hidden>Feiertage</button>
+    <button data-tab="dokument" class="nur-verwalter" hidden>Dokument</button>
   </nav>
   <main>
     <section id="tab-start"></section>
     <section id="tab-antraege" hidden></section>
     <section id="tab-mitarbeiter" hidden></section>
     <section id="tab-feiertage" hidden></section>
+    <section id="tab-dokument" hidden></section>
   </main>
 </div>
 
@@ -209,6 +212,7 @@ function tabWechseln(name){
   if(name==='antraege') renderAntraege();
   if(name==='mitarbeiter') renderMitarbeiter();
   if(name==='feiertage') renderFeiertage();
+  if(name==='dokument') renderDokument();
 }
 
 async function renderStart(){
@@ -386,6 +390,14 @@ async function renderMitarbeiter(){
       <p style="color:var(--muted);font-size:.85rem">Wichtig: Für diese E-Mail-Adresse muss in Supabase unter Authentication → Users ein Zugang mit Passwort angelegt sein.</p>
     </div>
     <div class="block">
+      <h2>Mehrere Mitarbeiter per Datei importieren</h2>
+      <p style="color:var(--muted);font-size:.9rem">Excel- oder CSV-Datei mit Spalten <strong>Vorname, Nachname, Abteilung, Eintrittsdatum</strong> (optional: Austrittsdatum, Kontokorrektur). <a href="#" id="vorlage-link">Vorlage herunterladen</a>.</p>
+      <div class="formular-reihe">
+        <input id="import-datei" type="file" accept=".xlsx,.xls,.csv">
+      </div>
+      <div id="import-vorschau"></div>
+    </div>
+    <div class="block">
       <div class="umschalter">
         <button data-f="aktiv" class="${nurAktiveMitarbeiter?'aktiv':''}">Aktive</button>
         <button data-f="alle" class="${!nurAktiveMitarbeiter?'aktiv':''}">Alle</button>
@@ -394,6 +406,126 @@ async function renderMitarbeiter(){
     </div>`;
   document.getElementById('neuer-mitarbeiter-form').addEventListener('submit', neuerMitarbeiterAbsenden);
   el.querySelectorAll('.umschalter button').forEach(b=>b.addEventListener('click', ()=>{ nurAktiveMitarbeiter = b.dataset.f==='aktiv'; renderMitarbeiter(); }));
+  document.getElementById('import-datei').addEventListener('change', importDateiAusgewaehlt);
+  document.getElementById('vorlage-link').addEventListener('click', (e)=>{ e.preventDefault(); importVorlageHerunterladen(); });
+  await ladeMitarbeiterListe();
+}
+
+function importVorlageHerunterladen(){
+  const csv = 'Vorname;Nachname;Abteilung;Eintrittsdatum;Austrittsdatum;Kontokorrektur\nMax;Mustermann;Lager;01.03.2024;;0\n';
+  const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mitarbeiter-vorlage.csv';
+  a.click();
+}
+
+function parseDatumFlex(val){
+  if(val===null || val===undefined || val==='') return null;
+  if(val instanceof Date && !isNaN(val)) return val.toISOString().slice(0,10);
+  const s = String(val).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[.,/](\d{1,2})[.,/](\d{2,4})$/);
+  if(m){
+    let [,t,mo,j] = m;
+    if(j.length===2) j = '20'+j;
+    return `${j.padStart(4,'0')}-${mo.padStart(2,'0')}-${t.padStart(2,'0')}`;
+  }
+  return null;
+}
+
+let importZeilen = [];
+
+function importDateiAusgewaehlt(e){
+  const datei = e.target.files[0];
+  if(!datei) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const wb = XLSX.read(ev.target.result, { type:'binary', cellDates:true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rohzeilen = XLSX.utils.sheet_to_json(ws, { defval:'' });
+    verarbeiteImportZeilen(rohzeilen);
+  };
+  reader.readAsBinaryString(datei);
+}
+
+function spaltenWert(zeile, ...namen){
+  const keys = Object.keys(zeile);
+  for(const name of namen){
+    const key = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
+    if(key !== undefined) return zeile[key];
+  }
+  return '';
+}
+
+async function verarbeiteImportZeilen(rohzeilen){
+  const ziel = document.getElementById('import-vorschau');
+  if(!rohzeilen.length){
+    ziel.innerHTML = '<p class="fehler">Die Datei enthält keine Zeilen.</p>';
+    return;
+  }
+  const { data: bestehende } = await sb.from('mitarbeiter').select('vorname,nachname');
+  const bestehendeSet = new Set((bestehende||[]).map(m => (m.vorname+' '+m.nachname).trim().toLowerCase()));
+
+  importZeilen = [];
+  const fehlerZeilen = [];
+  rohzeilen.forEach((z, idx) => {
+    const vorname = String(spaltenWert(z,'Vorname')).trim();
+    const nachname = String(spaltenWert(z,'Nachname')).trim();
+    const abteilung = String(spaltenWert(z,'Abteilung')).trim();
+    const eintrittRoh = spaltenWert(z,'Eintrittsdatum');
+    const austrittRoh = spaltenWert(z,'Austrittsdatum');
+    const korrekturRoh = spaltenWert(z,'Kontokorrektur');
+    const eintritt = parseDatumFlex(eintrittRoh);
+    const austritt = austrittRoh ? parseDatumFlex(austrittRoh) : null;
+    const dupe = bestehendeSet.has((vorname+' '+nachname).trim().toLowerCase());
+
+    if(!vorname || !nachname || !abteilung || !eintritt){
+      fehlerZeilen.push({ zeile: idx+2, grund: !eintritt && eintrittRoh ? `Eintrittsdatum "${eintrittRoh}" nicht lesbar` : 'Vorname, Nachname, Abteilung oder Eintrittsdatum fehlt' });
+      return;
+    }
+    importZeilen.push({
+      vorname, nachname, abteilung, eintrittsdatum: eintritt,
+      austrittsdatum: austritt, kontokorrektur: parseFloat(korrekturRoh) || 0,
+      dupe
+    });
+  });
+
+  let html = '';
+  if(fehlerZeilen.length){
+    html += `<div class="hinweis">${fehlerZeilen.length} Zeile(n) übersprungen: ${fehlerZeilen.map(f=>`Zeile ${f.zeile} (${f.grund})`).join(', ')}</div>`;
+  }
+  if(!importZeilen.length){
+    html += '<p class="fehler">Keine gültigen Zeilen zum Importieren.</p>';
+    ziel.innerHTML = html;
+    return;
+  }
+  const neue = importZeilen.filter(z=>!z.dupe).length;
+  const dupes = importZeilen.filter(z=>z.dupe).length;
+  html += `<div class="block" style="margin-top:1em">
+    <p>${neue} neue Mitarbeiter werden angelegt${dupes?`, ${dupes} bereits vorhandene (gleicher Name) werden übersprungen`:''}.</p>
+    <div class="tabelle-wrapper"><table>
+      <thead><tr><th>Name</th><th>Abteilung</th><th>Eintritt</th><th>Austritt</th><th>Korrektur</th><th>Status</th></tr></thead>
+      <tbody>${importZeilen.map(z=>`<tr>
+        <td>${z.vorname} ${z.nachname}</td><td>${z.abteilung}</td><td>${formatDatum(z.eintrittsdatum)}</td>
+        <td>${z.austrittsdatum?formatDatum(z.austrittsdatum):'—'}</td><td>${z.kontokorrektur}</td>
+        <td>${z.dupe?'<span class="badge status-abgelehnt">existiert schon</span>':'<span class="badge status-genehmigt">neu</span>'}</td>
+      </tr>`).join('')}</tbody></table></div>
+    <button class="knopf" style="margin-top:1em" onclick="importBestaetigen()">${neue} Mitarbeiter importieren</button>
+  </div>`;
+  ziel.innerHTML = html;
+}
+
+async function importBestaetigen(){
+  const neue = importZeilen.filter(z=>!z.dupe).map(({dupe, ...rest})=>rest);
+  if(!neue.length) return;
+  const { error } = await sb.from('mitarbeiter').insert(neue);
+  const ziel = document.getElementById('import-vorschau');
+  if(error){ ziel.innerHTML = `<p class="fehler">${error.message}</p>`; return; }
+  ziel.innerHTML = `<div class="hinweis" style="background:var(--gruen-bg);color:var(--gruen)">${neue.length} Mitarbeiter erfolgreich importiert.</div>`;
+  document.getElementById('import-datei').value = '';
+  importZeilen = [];
   await ladeMitarbeiterListe();
 }
 
@@ -518,6 +650,147 @@ async function feiertagLoeschen(id){
   await sb.from('feiertage').delete().eq('id', id);
   await ladeGrunddaten();
   await ladeFeiertageListe();
+}
+
+let dokumentMitarbeiterListe = [];
+const DOK_ART_LABEL = { einstellung:'Neuer Mitarbeiter', kuendigung:'Kündigung', krankmeldung:'Krankmeldung', urlaubsantrag:'Urlaubsantrag', unbekannt:'Unbekannt' };
+
+async function renderDokument(){
+  const el = document.getElementById('tab-dokument');
+  const { data } = await sb.from('mitarbeiter').select('id,vorname,nachname').is('austrittsdatum', null).order('vorname');
+  dokumentMitarbeiterListe = data || [];
+  el.innerHTML = `
+    <div class="block">
+      <h2>Dokument hochladen und lesen lassen</h2>
+      <p style="color:var(--muted);font-size:.9rem">PDF oder Foto eines Vertrags, einer Kündigung, Krankmeldung oder eines Urlaubsantrags. Die KI schlägt die Daten vor – nichts wird gespeichert, bevor du „Übernehmen" klickst.</p>
+      <div class="formular-reihe">
+        <input id="dok-datei" type="file" accept=".pdf,image/*">
+        <button class="knopf" type="button" id="dok-lesen-knopf">Lesen lassen</button>
+      </div>
+      <p class="fehler" id="dok-fehler"></p>
+      <div id="dok-ergebnis"></div>
+    </div>`;
+  document.getElementById('dok-lesen-knopf').addEventListener('click', dokumentLesen);
+}
+
+function dateiZuBase64(datei){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(datei);
+  });
+}
+
+async function dokumentLesen(){
+  const input = document.getElementById('dok-datei');
+  const datei = input.files[0];
+  const fehlerEl = document.getElementById('dok-fehler');
+  fehlerEl.textContent = '';
+  document.getElementById('dok-ergebnis').innerHTML = '';
+  if(!datei){ fehlerEl.textContent = 'Bitte eine Datei auswählen.'; return; }
+  const knopf = document.getElementById('dok-lesen-knopf');
+  knopf.disabled = true; knopf.textContent = 'Lese...';
+  try{
+    const dateiBase64 = await dateiZuBase64(datei);
+    const { data, error } = await sb.functions.invoke('hyper-handler', { body: { dateiBase64, mediaType: datei.type } });
+    if(error) throw error;
+    if(data.error) throw new Error(data.error);
+    zeigeDokumentErgebnis(data);
+  }catch(e){
+    fehlerEl.textContent = 'Fehler beim Lesen: ' + (e.message || e);
+  }finally{
+    knopf.disabled = false; knopf.textContent = 'Lesen lassen';
+  }
+}
+
+function zeigeDokumentErgebnis(d){
+  const art = DOK_ART_LABEL[d.art] ? d.art : 'unbekannt';
+  const gefunden = dokumentMitarbeiterListe.find(m =>
+    (m.vorname||'').trim().toLowerCase() === (d.vorname||'').trim().toLowerCase() &&
+    (m.nachname||'').trim().toLowerCase() === (d.nachname||'').trim().toLowerCase());
+
+  document.getElementById('dok-ergebnis').innerHTML = `
+    <div class="block" style="margin-top:1em">
+      ${d.sicherheit==='niedrig' || art==='unbekannt' ? `<div class="hinweis">Die KI ist sich unsicher${d.hinweis?(': '+d.hinweis):''}. Bitte besonders genau prüfen oder manuell im passenden Reiter eintragen.</div>` : ''}
+      <form id="dok-form" class="formular-reihe">
+        <div class="feld"><label>Art</label>
+          <select id="dok-art">${Object.entries(DOK_ART_LABEL).map(([k,v])=>`<option value="${k}" ${k===art?'selected':''}>${v}</option>`).join('')}</select>
+        </div>
+        <div class="feld" id="dok-feld-mitarbeiter" style="min-width:220px"><label>Mitarbeiter</label>
+          <select id="dok-mitarbeiter">
+            <option value="">— auswählen —</option>
+            ${dokumentMitarbeiterListe.map(m=>`<option value="${m.id}" ${gefunden&&gefunden.id===m.id?'selected':''}>${m.vorname} ${m.nachname}</option>`).join('')}
+          </select>
+        </div>
+        <div class="feld" id="dok-feld-vorname"><label>Vorname</label><input id="dok-vorname" value="${d.vorname||''}"></div>
+        <div class="feld" id="dok-feld-nachname"><label>Nachname</label><input id="dok-nachname" value="${d.nachname||''}"></div>
+        <div class="feld" id="dok-feld-abteilung"><label>Abteilung</label>
+          <select id="dok-abteilung">${abteilungenListe.map(a=>`<option ${a===d.abteilung?'selected':''}>${a}</option>`).join('')}</select>
+        </div>
+        <div class="feld" id="dok-feld-von"><label id="dok-label-von">Datum</label><input id="dok-von" type="date" value="${d.datum_von||''}"></div>
+        <div class="feld" id="dok-feld-bis"><label>Bis</label><input id="dok-bis" type="date" value="${d.datum_bis||''}"></div>
+        <button class="knopf" type="submit">Übernehmen</button>
+      </form>
+      <p class="fehler" id="dok-uebernehmen-fehler"></p>
+    </div>`;
+
+  dokumentFelderAnpassen();
+  document.getElementById('dok-art').addEventListener('change', dokumentFelderAnpassen);
+  document.getElementById('dok-form').addEventListener('submit', dokumentUebernehmen);
+}
+
+function dokumentFelderAnpassen(){
+  const art = document.getElementById('dok-art').value;
+  const zeig = (id, an) => { document.getElementById(id).style.display = an ? '' : 'none'; };
+  zeig('dok-feld-mitarbeiter', art !== 'einstellung');
+  zeig('dok-feld-vorname', art === 'einstellung');
+  zeig('dok-feld-nachname', art === 'einstellung');
+  zeig('dok-feld-abteilung', art === 'einstellung');
+  zeig('dok-feld-von', art !== 'unbekannt');
+  zeig('dok-feld-bis', art === 'urlaubsantrag' || art === 'krankmeldung');
+  document.getElementById('dok-label-von').textContent =
+    art==='einstellung' ? 'Eintrittsdatum' : art==='kuendigung' ? 'Austrittsdatum' : 'Von';
+}
+
+async function dokumentUebernehmen(e){
+  e.preventDefault();
+  const art = document.getElementById('dok-art').value;
+  const fehlerEl = document.getElementById('dok-uebernehmen-fehler');
+  fehlerEl.textContent = '';
+
+  if(art === 'einstellung'){
+    const vorname = document.getElementById('dok-vorname').value.trim();
+    const nachname = document.getElementById('dok-nachname').value.trim();
+    const abteilung = document.getElementById('dok-abteilung').value;
+    const eintrittsdatum = document.getElementById('dok-von').value;
+    if(!vorname || !nachname || !eintrittsdatum){ fehlerEl.textContent = 'Vorname, Nachname und Eintrittsdatum sind nötig.'; return; }
+    const { error } = await sb.from('mitarbeiter').insert({ vorname, nachname, abteilung, eintrittsdatum });
+    if(error){ fehlerEl.textContent = error.message; return; }
+  } else if(art === 'kuendigung'){
+    const mitarbeiterId = document.getElementById('dok-mitarbeiter').value;
+    const austrittsdatum = document.getElementById('dok-von').value;
+    if(!mitarbeiterId || !austrittsdatum){ fehlerEl.textContent = 'Mitarbeiter und Austrittsdatum auswählen.'; return; }
+    const { error } = await sb.from('mitarbeiter').update({ austrittsdatum }).eq('id', mitarbeiterId);
+    if(error){ fehlerEl.textContent = error.message; return; }
+  } else if(art === 'krankmeldung' || art === 'urlaubsantrag'){
+    const mitarbeiterId = document.getElementById('dok-mitarbeiter').value;
+    const von = document.getElementById('dok-von').value;
+    const bis = document.getElementById('dok-bis').value || von;
+    if(!mitarbeiterId || !von){ fehlerEl.textContent = 'Mitarbeiter und Datum auswählen.'; return; }
+    const werktage = werktageZaehlen(von, bis);
+    if(werktage<=0){ fehlerEl.textContent = 'Der Zeitraum enthält keinen Werktag.'; return; }
+    const { error } = await sb.from('abwesenheiten').insert({
+      mitarbeiter_id: mitarbeiterId, art: art==='krankmeldung'?'Krank':'Urlaub', von, bis, werktage, status:'offen'
+    });
+    if(error){ fehlerEl.textContent = error.message; return; }
+  } else {
+    fehlerEl.textContent = 'Art unbekannt – bitte manuell im passenden Reiter eintragen.';
+    return;
+  }
+
+  document.getElementById('dok-ergebnis').innerHTML = `<div class="hinweis" style="background:var(--gruen-bg);color:var(--gruen)">Übernommen${art==='krankmeldung'||art==='urlaubsantrag'?' – als offener Antrag, muss noch genehmigt werden.':''}.</div>`;
+  document.getElementById('dok-datei').value = '';
 }
 
 document.getElementById('login-form').addEventListener('submit', async (e)=>{
