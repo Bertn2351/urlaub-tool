@@ -1220,11 +1220,23 @@ function dokumentErgebnis(d){
           </select></div>
         <div class="feld" id="dok-f-vorname"><label>Vorname</label><input id="dok-vorname" value="${esc(d.vorname||'')}"></div>
         <div class="feld" id="dok-f-nachname"><label>Nachname</label><input id="dok-nachname" value="${esc(d.nachname||'')}"></div>
-        <div class="feld" id="dok-f-dienstnummer"><label>Dienstnummer</label><input id="dok-dienstnummer" inputmode="numeric"></div>
-        <div class="feld" id="dok-f-geburtsdatum"><label>Geburtsdatum</label><input id="dok-geburtsdatum" type="date"></div>
+        <div class="feld" id="dok-f-dienstnummer"><label>Dienstnummer</label><input id="dok-dienstnummer" inputmode="numeric" value="${esc(d.dienstnummer||'')}"></div>
+        <div class="feld" id="dok-f-geburtsdatum"><label>Geburtsdatum${d.geburtsdatum_quelle ? ' (aus SV-Nr.)' : ''}</label><input id="dok-geburtsdatum" type="date" value="${esc(d.geburtsdatum||'')}"></div>
         <div class="feld" id="dok-f-abteilung"><label>Abteilung</label>
           <select id="dok-abteilung">${abteilungen.map(a =>
             `<option ${a===d.abteilung?'selected':''}>${esc(a)}</option>`).join('')}</select></div>
+        <div class="feld" id="dok-f-taetigkeit"><label>Tätigkeit</label><input id="dok-taetigkeit" value="${esc(d.taetigkeit||'')}"></div>
+        <div class="feld" id="dok-f-beschaeftigung"><label>Beschäftigungsart</label>
+          <select id="dok-beschaeftigung"><option value="">—</option>
+            ${['Vollzeit','Teilzeit','Geringfügig'].map(x => {
+              const passt = String(d.beschaeftigung||'').toLowerCase().startsWith(x.slice(0,6).toLowerCase());
+              return `<option ${passt?'selected':''}>${x}</option>`;
+            }).join('')}</select></div>
+        <div class="feld" id="dok-f-wochenstunden"><label>Wochenstunden</label><input id="dok-wochenstunden" type="number" step="0.5" value="${esc(String(d.wochenstunden||'').replace(',','.'))}"></div>
+        <div class="feld" id="dok-f-sv"><label>SV-Nummer</label><input id="dok-sv" value="${esc(d.sv_nummer||'')}"></div>
+        <div class="feld" id="dok-f-staat"><label>Staatsangehörigkeit</label><input id="dok-staat" value="${esc(d.staatsangehoerigkeit||'')}"></div>
+        <div class="feld" id="dok-f-telefon"><label>Telefon</label><input id="dok-telefon" value="${esc(d.telefon||'')}"></div>
+        <div class="feld feld-breit" id="dok-f-adresse"><label>Adresse</label><input id="dok-adresse" value="${esc(d.adresse||'')}"></div>
         <div class="feld" id="dok-f-von"><label id="dok-label-von">Datum</label><input id="dok-von" type="date" value="${esc(d.datum_von||'')}"></div>
         <div class="feld" id="dok-f-bis"><label>Bis</label><input id="dok-bis" type="date" value="${esc(d.datum_bis||'')}"></div>
       </div>
@@ -1244,8 +1256,9 @@ function dokFelder(){
   const abwesenheit = art === 'krankmeldung' || art === 'urlaubsantrag';
   const zeig = (id, an) => { $(id).hidden = !an; };
   zeig('dok-f-person', !neu && art !== 'unbekannt');
-  zeig('dok-f-vorname', neu); zeig('dok-f-nachname', neu);
-  zeig('dok-f-dienstnummer', neu); zeig('dok-f-geburtsdatum', neu); zeig('dok-f-abteilung', neu);
+  ['dok-f-vorname','dok-f-nachname','dok-f-dienstnummer','dok-f-geburtsdatum','dok-f-abteilung',
+   'dok-f-taetigkeit','dok-f-beschaeftigung','dok-f-wochenstunden','dok-f-sv','dok-f-staat',
+   'dok-f-telefon','dok-f-adresse'].forEach(id => zeig(id, neu));
   zeig('dok-f-von', art !== 'unbekannt');
   zeig('dok-f-bis', abwesenheit);
   $('dok-label-von').textContent = neu ? 'Eintrittsdatum' : art === 'kuendigung' ? 'Austrittsdatum' : 'Von';
@@ -1264,7 +1277,14 @@ async function dokumentUebernehmen(){
         vorname: $('dok-vorname').value.trim(),
         nachname: $('dok-nachname').value.trim(),
         abteilung: $('dok-abteilung').value,
-        eintrittsdatum: $('dok-von').value
+        eintrittsdatum: $('dok-von').value,
+        taetigkeit: $('dok-taetigkeit').value.trim(),
+        beschaeftigung: $('dok-beschaeftigung').value,
+        wochenstunden: $('dok-wochenstunden').value,
+        sv_nummer: $('dok-sv').value.trim(),
+        staatsangehoerigkeit: $('dok-staat').value.trim(),
+        telefon: $('dok-telefon').value.trim(),
+        adresse: $('dok-adresse').value.trim()
       });
       $('dok-u-erfolg').innerHTML = `<div class="erfolg">Mitarbeiter angelegt. Anmelde-Code: <strong>${esc(ergebnis.code)}</strong></div>`;
 
