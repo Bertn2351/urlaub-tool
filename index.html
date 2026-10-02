@@ -1208,6 +1208,7 @@ function dokumentErgebnis(d){
 
   $('dok-ergebnis').innerHTML = `
     <div class="block" style="margin-top:1em;box-shadow:none;border:1px solid var(--rand)">
+      ${d.quelle ? `<p class="leer" style="margin-top:0">Quelle: ${esc(d.quelle)}. Leere Felder standen nicht im Dokument.</p>` : ''}
       ${(d.sicherheit === 'niedrig' || art === 'unbekannt')
         ? `<div class="hinweis">Die Erkennung ist unsicher${d.hinweis ? ': '+esc(d.hinweis) : ''}. Bitte genau prüfen.</div>` : ''}
       <div class="formular-gitter">
@@ -1222,9 +1223,11 @@ function dokumentErgebnis(d){
         <div class="feld" id="dok-f-nachname"><label>Nachname</label><input id="dok-nachname" value="${esc(d.nachname||'')}"></div>
         <div class="feld" id="dok-f-dienstnummer"><label>Dienstnummer</label><input id="dok-dienstnummer" inputmode="numeric" value="${esc(d.dienstnummer||'')}"></div>
         <div class="feld" id="dok-f-geburtsdatum"><label>Geburtsdatum${d.geburtsdatum_quelle ? ' (aus SV-Nr.)' : ''}</label><input id="dok-geburtsdatum" type="date" value="${esc(d.geburtsdatum||'')}"></div>
-        <div class="feld" id="dok-f-abteilung"><label>Abteilung</label>
-          <select id="dok-abteilung">${abteilungen.map(a =>
-            `<option ${a===d.abteilung?'selected':''}>${esc(a)}</option>`).join('')}</select></div>
+        <div class="feld" id="dok-f-abteilung"><label>Abteilung *</label>
+          <select id="dok-abteilung">
+            <option value="">— bitte wählen —</option>
+            ${abteilungen.map(a => `<option ${a===d.abteilung?'selected':''}>${esc(a)}</option>`).join('')}
+          </select></div>
         <div class="feld" id="dok-f-taetigkeit"><label>Tätigkeit</label><input id="dok-taetigkeit" value="${esc(d.taetigkeit||'')}"></div>
         <div class="feld" id="dok-f-beschaeftigung"><label>Beschäftigungsart</label>
           <select id="dok-beschaeftigung"><option value="">—</option>
@@ -1271,6 +1274,7 @@ async function dokumentUebernehmen(){
 
   try {
     if(art === 'einstellung'){
+      if(!$('dok-abteilung').value) throw new Error('Bitte eine Abteilung auswählen – die steht nicht im Dokument.');
       const ergebnis = await edgeAufruf('mitarbeiter-anlegen', {
         dienstnummer: $('dok-dienstnummer').value.trim(),
         geburtsdatum: $('dok-geburtsdatum').value,
