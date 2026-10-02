@@ -317,7 +317,7 @@ async function ladeEigeneAntraege(){
 }
 
 async function ladeAlleAntraege(){
-  let q = sb.from('abwesenheiten').select('*, mitarbeiter(vorname,nachname)').order('erstellt_am', { ascending:false });
+  let q = sb.from('abwesenheiten').select('*, mitarbeiter!abwesenheiten_mitarbeiter_id_fkey(vorname,nachname)').order('erstellt_am', { ascending:false });
   if(antraegeFilter==='offen') q = q.eq('status','offen');
   const { data, error } = await q;
   const ziel = document.getElementById('verwalter-antraege-liste');
