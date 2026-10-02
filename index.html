@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Urlaub Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#f3f5f8; --karte:#ffffff; --text:#1b2430; --muted:#67748b;
+  --akzent:#2563eb; --akzent-dunkel:#1d4ed8; --rand:#e2e6ee;
+  --gruen:#16a34a; --rot:#dc2626; --gelb:#b45309; --gelb-bg:#fef3c7;
+  --gruen-bg:#dcfce7; --rot-bg:#fee2e2;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+h1,h2,h3{margin:0 0 .5em 0;font-weight:600}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit;font-size:.95rem;padding:.5em .6em;border:1px solid var(--rand);border-radius:6px;background:#fff;color:var(--text)}
+input:focus,select:focus{outline:2px solid var(--akzent);outline-offset:1px}
+.fehler{color:var(--rot);font-size:.9rem;min-height:1.2em}
+
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center}
+#login-form{background:var(--karte);padding:2.5em 2em;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.08);width:min(340px,90vw);display:flex;flex-direction:column;gap:.9em}
+#login-form button{background:var(--akzent);color:#fff;border:none;border-radius:6px;padding:.7em;font-weight:600}
+#login-form button:hover{background:var(--akzent-dunkel)}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:1em 1.5em;background:var(--karte);border-bottom:1px solid var(--rand)}
+header h1{font-size:1.2rem}
+.kopf-rechts{display:flex;align-items:center;gap:1em;color:var(--muted);font-size:.9rem}
+#abmelden{background:none;border:1px solid var(--rand);border-radius:6px;padding:.4em .9em;color:var(--text)}
+#abmelden:hover{background:var(--bg)}
+
+#tabs{display:flex;gap:.3em;padding:0 1.5em;background:var(--karte);border-bottom:1px solid var(--rand);overflow-x:auto}
+#tabs button{background:none;border:none;padding:.9em 1em;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
+#tabs button.tab-aktiv{color:var(--akzent);border-bottom-color:var(--akzent)}
+
+main{padding:1.5em;max-width:1100px;margin:0 auto}
+.karten-reihe{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1em;margin-bottom:1.5em}
+.karte{background:var(--karte);border-radius:10px;padding:1.2em;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.karte .zahl{font-size:1.8rem;font-weight:700}
+.karte .label{color:var(--muted);font-size:.85rem;margin-top:.2em}
+
+.block{background:var(--karte);border-radius:10px;padding:1.3em;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:1.5em}
+.block h2{font-size:1.05rem}
+
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:.6em .5em;border-bottom:1px solid var(--rand)}
+th{color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.02em}
+tr:last-child td{border-bottom:none}
+.tabelle-wrapper{overflow-x:auto}
+
+.formular-reihe{display:flex;flex-wrap:wrap;gap:.7em;align-items:end;margin-bottom:1em}
+.feld{display:flex;flex-direction:column;gap:.3em}
+.feld label{font-size:.8rem;color:var(--muted)}
+.knopf{background:var(--akzent);color:#fff;border:none;border-radius:6px;padding:.55em 1.1em;font-weight:600}
+.knopf:hover{background:var(--akzent-dunkel)}
+.knopf.sekundaer{background:none;border:1px solid var(--rand);color:var(--text)}
+.knopf.sekundaer:hover{background:var(--bg)}
+.knopf.gefahr{background:var(--rot)}
+.knopf.gefahr:hover{background:#b91c1c}
+.knopf.klein{padding:.35em .7em;font-size:.82rem}
+
+.badge{display:inline-block;padding:.2em .6em;border-radius:999px;font-size:.78rem;font-weight:600}
+.status-offen{background:var(--gelb-bg);color:var(--gelb)}
+.status-genehmigt{background:var(--gruen-bg);color:var(--gruen)}
+.status-abgelehnt{background:var(--rot-bg);color:var(--rot)}
+
+.umschalter{display:flex;gap:.4em;margin-bottom:1em}
+.umschalter button{background:none;border:1px solid var(--rand);padding:.4em .9em;border-radius:6px;color:var(--muted);font-size:.85rem}
+.umschalter button.aktiv{background:var(--akzent);color:#fff;border-color:var(--akzent)}
+
+.hinweis{background:var(--gelb-bg);color:var(--gelb);padding:.8em 1em;border-radius:8px;font-size:.9rem;margin-bottom:1.5em}
+
+#modal-hintergrund{position:fixed;inset:0;background:rgba(15,20,30,.4);display:flex;align-items:center;justify-content:center;padding:1em;z-index:50}
+#modal{background:#fff;border-radius:12px;padding:1.6em;width:min(420px,100%);max-height:90vh;overflow:auto}
+#modal .formular-reihe{flex-direction:column;align-items:stretch}
+#modal .feld{width:100%}
+#modal .feld input,#modal .feld select{width:100%}
+
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form id="login-form">
+    <h1>Urlaub Tool</h1>
+    <input id="login-email" type="email" placeholder="E-Mail" autocomplete="username" required>
+    <input id="login-pass" type="password" placeholder="Passwort" autocomplete="current-password" required>
+    <button type="submit">Anmelden</button>
+    <p class="fehler" id="login-fehler"></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>Urlaub Tool</h1>
+    <div class="kopf-rechts">
+      <span id="wer-bin-ich"></span>
+      <button id="abmelden">Abmelden</button>
+    </div>
+  </header>
+  <nav id="tabs">
+    <button data-tab="start" class="tab-aktiv">Start</button>
+    <button data-tab="antraege">Anträge</button>
+    <button data-tab="mitarbeiter" class="nur-verwalter" hidden>Mitarbeiter</button>
+    <button data-tab="feiertage" class="nur-verwalter" hidden>Feiertage</button>
+  </nav>
+  <main>
+    <section id="tab-start"></section>
+    <section id="tab-antraege" hidden></section>
+    <section id="tab-mitarbeiter" hidden></section>
+    <section id="tab-feiertage" hidden></section>
+  </main>
+</div>
+
+<div id="modal-hintergrund" hidden>
+  <div id="modal"></div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://sggfkahjuzhyietgoeqh.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_zsH7fXxMPozvmfVUZyDyqg_kyd0LFqM";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let ich = null;
+let meinMitarbeiter = null;
+let istVerwalter = false;
+let feiertageSet = new Set();
+let abteilungenListe = [];
+let nurAktiveMitarbeiter = true;
+let antraegeFilter = 'offen';
+
+function formatDatum(iso){
+  if(!iso) return '';
+  const [j,m,t] = iso.split('-');
+  return `${t}.${m}.${j}`;
+}
+function formatZahl(n){
+  return Number(n).toLocaleString('de-AT',{maximumFractionDigits:1});
+}
+function werktageZaehlen(vonStr, bisStr){
+  const von = new Date(vonStr+'T00:00:00Z');
+  const bis = new Date(bisStr+'T00:00:00Z');
+  if(isNaN(von)||isNaN(bis)||bis<von) return 0;
+  let n=0;
+  const d = new Date(von);
+  while(d<=bis){
+    const tag = d.getUTCDay();
+    const iso = d.toISOString().slice(0,10);
+    if(tag!==0 && tag!==6 && !feiertageSet.has(iso)) n++;
+    d.setUTCDate(d.getUTCDate()+1);
+  }
+  return n;
+}
+
+function zeigeModal(html){
+  document.getElementById('modal').innerHTML = html;
+  document.getElementById('modal-hintergrund').hidden = false;
+}
+function schliesseModal(){
+  document.getElementById('modal-hintergrund').hidden = true;
+  document.getElementById('modal').innerHTML = '';
+}
+document.getElementById('modal-hintergrund').addEventListener('click', e=>{
+  if(e.target.id==='modal-hintergrund') schliesseModal();
+});
+
+async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session) await angemeldet(session.user); else zeigeLogin();
+}
+
+function zeigeLogin(){
+  document.getElementById('app').hidden = true;
+  document.getElementById('login').hidden = false;
+}
+
+async function angemeldet(user){
+  ich = user;
+  document.getElementById('login').hidden = true;
+  document.getElementById('app').hidden = false;
+  await ladeGrunddaten();
+  tabWechseln('start');
+}
+
+async function ladeGrunddaten(){
+  const { data: m } = await sb.from('mitarbeiter_uebersicht').select('*').eq('email', ich.email).maybeSingle();
+  meinMitarbeiter = m || null;
+  istVerwalter = meinMitarbeiter ? meinMitarbeiter.rolle === 'verwalter' : true;
+
+  document.getElementById('wer-bin-ich').textContent = meinMitarbeiter ? meinMitarbeiter.vollername : ich.email;
+  document.querySelectorAll('.nur-verwalter').forEach(el => el.hidden = !istVerwalter);
+
+  const { data: f } = await sb.from('feiertage').select('datum');
+  feiertageSet = new Set((f||[]).map(x=>x.datum));
+
+  const { data: abt } = await sb.from('abteilungen').select('name').order('name');
+  abteilungenListe = (abt||[]).map(x=>x.name);
+}
+
+function tabWechseln(name){
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('tab-aktiv', b.dataset.tab===name));
+  document.querySelectorAll('main section').forEach(s=>s.hidden = s.id !== 'tab-'+name);
+  if(name==='start') renderStart();
+  if(name==='antraege') renderAntraege();
+  if(name==='mitarbeiter') renderMitarbeiter();
+  if(name==='feiertage') renderFeiertage();
+}
+
+async function renderStart(){
+  const el = document.getElementById('tab-start');
+  if(!istVerwalter){
+    if(!meinMitarbeiter){
+      el.innerHTML = `<div class="hinweis">Für deine E-Mail-Adresse gibt es noch keinen Mitarbeiter-Datensatz. Bitte an den Verwalter wenden.</div>`;
+      return;
+    }
+    const m = meinMitarbeiter;
+    el.innerHTML = `
+      <div class="karten-reihe">
+        <div class="karte"><div class="zahl">${formatZahl(m.urlaubskonto)}</div><div class="label">Urlaubskonto (Tage)</div></div>
+        <div class="karte"><div class="zahl">${formatZahl(m.urlaubsanspruch)}</div><div class="label">Urlaubsanspruch gesamt</div></div>
+        <div class="karte"><div class="zahl">${formatZahl(m.konsumiert)}</div><div class="label">Konsumierte Urlaubstage</div></div>
+        <div class="karte"><div class="zahl">${formatZahl(m.krank)}</div><div class="label">Krankheitstage</div></div>
+        <div class="karte"><div class="zahl">${formatZahl(m.sonstige)}</div><div class="label">Sonstige Abwesenheit</div></div>
+        <div class="karte"><div class="zahl">${m.tage_in_firma}</div><div class="label">Tage in der Firma</div></div>
+      </div>
+      <div class="block">
+        <h2>Eintrittsdatum</h2>
+        <p>${formatDatum(m.eintrittsdatum)} · Abteilung: ${m.abteilung}</p>
+      </div>`;
+    return;
+  }
+  const { data, error } = await sb.from('mitarbeiter_uebersicht').select('*').order('vollername');
+  if(error){ el.innerHTML = `<div class="hinweis">${error.message}</div>`; return; }
+  const aktive = (data||[]).filter(m=>!m.austrittsdatum);
+  el.innerHTML = `
+    <div class="block">
+      <h2>Übersicht aktive Mitarbeiter (${aktive.length})</h2>
+      <div class="tabelle-wrapper"><table>
+        <thead><tr><th>Name</th><th>Abteilung</th><th>Anspruch</th><th>Konsumiert</th><th>Krank</th><th>Sonstige</th><th>Konto</th></tr></thead>
+        <tbody>
+          ${aktive.map(m=>`<tr>
+            <td>${m.vollername}</td><td>${m.abteilung}</td>
+            <td>${formatZahl(m.urlaubsanspruch)}</td><td>${formatZahl(m.konsumiert)}</td>
+            <td>${formatZahl(m.krank)}</td><td>${formatZahl(m.sonstige)}</td>
+            <td><strong>${formatZahl(m.urlaubskonto)}</strong></td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>`;
+}
+
+async function renderAntraege(){
+  const el = document.getElementById('tab-antraege');
+  if(!istVerwalter){
+    if(!meinMitarbeiter){
+      el.innerHTML = `<div class="hinweis">Für deine E-Mail-Adresse gibt es noch keinen Mitarbeiter-Datensatz. Bitte an den Verwalter wenden.</div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div class="block">
+        <h2>Neuen Antrag stellen</h2>
+        <form id="neuer-antrag-form" class="formular-reihe">
+          <div class="feld"><label>Art</label>
+            <select id="na-art"><option>Urlaub</option><option>Krank</option><option>Sonstige</option></select>
+          </div>
+          <div class="feld"><label>Von</label><input id="na-von" type="date" required></div>
+          <div class="feld"><label>Bis</label><input id="na-bis" type="date" required></div>
+          <div class="feld"><label>Werktage</label><input id="na-werktage" type="text" readonly value="0" style="width:4em"></div>
+          <button class="knopf" type="submit">Beantragen</button>
+        </form>
+        <p class="fehler" id="na-fehler"></p>
+      </div>
+      <div class="block">
+        <h2>Meine Anträge</h2>
+        <div id="meine-antraege-liste"></div>
+      </div>`;
+    const von = document.getElementById('na-von');
+    const bis = document.getElementById('na-bis');
+    const vorschau = () => { document.getElementById('na-werktage').value = (von.value&&bis.value) ? werktageZaehlen(von.value,bis.value) : 0; };
+    von.addEventListener('change', vorschau);
+    bis.addEventListener('change', vorschau);
+    document.getElementById('neuer-antrag-form').addEventListener('submit', neuerAntragAbsenden);
+    await ladeEigeneAntraege();
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="block">
+      <div class="umschalter">
+        <button data-filter="offen" class="${antraegeFilter==='offen'?'aktiv':''}">Offen</button>
+        <button data-filter="alle" class="${antraegeFilter==='alle'?'aktiv':''}">Alle</button>
+      </div>
+      <div id="verwalter-antraege-liste"></div>
+    </div>`;
+  el.querySelectorAll('.umschalter button').forEach(b=>b.addEventListener('click', ()=>{ antraegeFilter=b.dataset.filter; renderAntraege(); }));
+  await ladeAlleAntraege();
+}
+
+async function ladeEigeneAntraege(){
+  const { data, error } = await sb.from('abwesenheiten')
+    .select('*').eq('mitarbeiter_id', meinMitarbeiter.id).order('erstellt_am', { ascending:false });
+  const ziel = document.getElementById('meine-antraege-liste');
+  if(error){ ziel.innerHTML = error.message; return; }
+  if(!data.length){ ziel.innerHTML = '<p style="color:var(--muted)">Noch keine Anträge.</p>'; return; }
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Art</th><th>Von</th><th>Bis</th><th>Werktage</th><th>Status</th><th></th></tr></thead>
+    <tbody>${data.map(a=>`<tr>
+      <td>${a.art}</td><td>${formatDatum(a.von)}</td><td>${formatDatum(a.bis)}</td><td>${a.werktage}</td>
+      <td><span class="badge status-${a.status}">${a.status}</span></td>
+      <td>${a.status==='offen' ? `<button class="knopf sekundaer klein" onclick="antragZurueckziehen('${a.id}')">Zurückziehen</button>` : ''}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function ladeAlleAntraege(){
+  let q = sb.from('abwesenheiten').select('*, mitarbeiter(vorname,nachname)').order('erstellt_am', { ascending:false });
+  if(antraegeFilter==='offen') q = q.eq('status','offen');
+  const { data, error } = await q;
+  const ziel = document.getElementById('verwalter-antraege-liste');
+  if(error){ ziel.innerHTML = error.message; return; }
+  if(!data.length){ ziel.innerHTML = '<p style="color:var(--muted)">Keine Anträge.</p>'; return; }
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Mitarbeiter</th><th>Art</th><th>Von</th><th>Bis</th><th>Werktage</th><th>Status</th><th></th></tr></thead>
+    <tbody>${data.map(a=>`<tr>
+      <td>${a.mitarbeiter ? a.mitarbeiter.vorname+' '+a.mitarbeiter.nachname : '—'}</td>
+      <td>${a.art}</td><td>${formatDatum(a.von)}</td><td>${formatDatum(a.bis)}</td><td>${a.werktage}</td>
+      <td><span class="badge status-${a.status}">${a.status}</span></td>
+      <td>${a.status==='offen' ? `
+        <button class="knopf klein" onclick="antragEntscheiden('${a.id}','genehmigt')">Genehmigen</button>
+        <button class="knopf gefahr klein" onclick="antragEntscheiden('${a.id}','abgelehnt')">Ablehnen</button>` : ''}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function neuerAntragAbsenden(e){
+  e.preventDefault();
+  const art = document.getElementById('na-art').value;
+  const von = document.getElementById('na-von').value;
+  const bis = document.getElementById('na-bis').value;
+  const werktage = werktageZaehlen(von,bis);
+  const fehlerEl = document.getElementById('na-fehler');
+  fehlerEl.textContent = '';
+  if(werktage<=0){ fehlerEl.textContent = 'Der Zeitraum enthält keinen Werktag.'; return; }
+  const { error } = await sb.from('abwesenheiten').insert({
+    mitarbeiter_id: meinMitarbeiter.id, art, von, bis, werktage, status:'offen'
+  });
+  if(error){ fehlerEl.textContent = error.message; return; }
+  await renderAntraege();
+}
+
+async function antragZurueckziehen(id){
+  if(!confirm('Diesen Antrag wirklich zurückziehen?')) return;
+  await sb.from('abwesenheiten').delete().eq('id', id);
+  await ladeEigeneAntraege();
+}
+
+async function antragEntscheiden(id, status){
+  await sb.from('abwesenheiten').update({
+    status, bearbeitet_von: meinMitarbeiter.id, bearbeitet_am: new Date().toISOString()
+  }).eq('id', id);
+  await ladeAlleAntraege();
+}
+
+async function renderMitarbeiter(){
+  const el = document.getElementById('tab-mitarbeiter');
+  el.innerHTML = `
+    <div class="block">
+      <h2>Neuen Mitarbeiter anlegen</h2>
+      <form id="neuer-mitarbeiter-form" class="formular-reihe">
+        <div class="feld"><label>E-Mail (Login)</label><input id="nm-email" type="email" required></div>
+        <div class="feld"><label>Vorname</label><input id="nm-vorname" required></div>
+        <div class="feld"><label>Nachname</label><input id="nm-nachname" required></div>
+        <div class="feld"><label>Abteilung</label>
+          <select id="nm-abteilung">${abteilungenListe.map(a=>`<option>${a}</option>`).join('')}</select>
+        </div>
+        <div class="feld"><label>Eintrittsdatum</label><input id="nm-eintritt" type="date" required></div>
+        <div class="feld"><label>Rolle</label>
+          <select id="nm-rolle"><option value="mitarbeiter">Mitarbeiter</option><option value="verwalter">Verwalter</option></select>
+        </div>
+        <button class="knopf" type="submit">Anlegen</button>
+      </form>
+      <p class="fehler" id="nm-fehler"></p>
+      <p style="color:var(--muted);font-size:.85rem">Wichtig: Für diese E-Mail-Adresse muss in Supabase unter Authentication → Users ein Zugang mit Passwort angelegt sein.</p>
+    </div>
+    <div class="block">
+      <div class="umschalter">
+        <button data-f="aktiv" class="${nurAktiveMitarbeiter?'aktiv':''}">Aktive</button>
+        <button data-f="alle" class="${!nurAktiveMitarbeiter?'aktiv':''}">Alle</button>
+      </div>
+      <div id="mitarbeiter-liste"></div>
+    </div>`;
+  document.getElementById('neuer-mitarbeiter-form').addEventListener('submit', neuerMitarbeiterAbsenden);
+  el.querySelectorAll('.umschalter button').forEach(b=>b.addEventListener('click', ()=>{ nurAktiveMitarbeiter = b.dataset.f==='aktiv'; renderMitarbeiter(); }));
+  await ladeMitarbeiterListe();
+}
+
+async function ladeMitarbeiterListe(){
+  const { data, error } = await sb.from('mitarbeiter_uebersicht').select('*').order('vollername');
+  const ziel = document.getElementById('mitarbeiter-liste');
+  if(error){ ziel.innerHTML = error.message; return; }
+  const liste = (data||[]).filter(m => nurAktiveMitarbeiter ? !m.austrittsdatum : true);
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Name</th><th>Abteilung</th><th>Eintritt</th><th>Rolle</th><th>Korrektur</th><th>Konto</th><th></th></tr></thead>
+    <tbody>${liste.map(m=>`<tr>
+      <td>${m.vollername}${m.austrittsdatum?' <span class="badge status-abgelehnt">ausgetreten</span>':''}</td>
+      <td>${m.abteilung}</td><td>${formatDatum(m.eintrittsdatum)}</td><td>${m.rolle}</td>
+      <td>${formatZahl(m.kontokorrektur)}</td><td><strong>${formatZahl(m.urlaubskonto)}</strong></td>
+      <td><button class="knopf sekundaer klein" onclick='mitarbeiterBearbeiten(${JSON.stringify(m)})'>Bearbeiten</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function neuerMitarbeiterAbsenden(e){
+  e.preventDefault();
+  const payload = {
+    email: document.getElementById('nm-email').value.trim(),
+    vorname: document.getElementById('nm-vorname').value.trim(),
+    nachname: document.getElementById('nm-nachname').value.trim(),
+    abteilung: document.getElementById('nm-abteilung').value,
+    eintrittsdatum: document.getElementById('nm-eintritt').value,
+    rolle: document.getElementById('nm-rolle').value
+  };
+  const fehlerEl = document.getElementById('nm-fehler');
+  fehlerEl.textContent = '';
+  const { error } = await sb.from('mitarbeiter').insert(payload);
+  if(error){ fehlerEl.textContent = error.message; return; }
+  document.getElementById('neuer-mitarbeiter-form').reset();
+  if(payload.email === ich.email) await ladeGrunddaten();
+  await ladeMitarbeiterListe();
+}
+
+function mitarbeiterBearbeiten(m){
+  zeigeModal(`
+    <h2>${m.vollername} bearbeiten</h2>
+    <form id="mb-form" class="formular-reihe">
+      <div class="feld"><label>Abteilung</label>
+        <select id="mb-abteilung">${abteilungenListe.map(a=>`<option ${a===m.abteilung?'selected':''}>${a}</option>`).join('')}</select>
+      </div>
+      <div class="feld"><label>Rolle</label>
+        <select id="mb-rolle">
+          <option value="mitarbeiter" ${m.rolle==='mitarbeiter'?'selected':''}>Mitarbeiter</option>
+          <option value="verwalter" ${m.rolle==='verwalter'?'selected':''}>Verwalter</option>
+        </select>
+      </div>
+      <div class="feld"><label>Kontokorrektur</label><input id="mb-korrektur" type="number" step="0.01" value="${m.kontokorrektur}"></div>
+      <div class="feld"><label>Austrittsdatum</label><input id="mb-austritt" type="date" value="${m.austrittsdatum||''}"></div>
+      <p class="fehler" id="mb-fehler"></p>
+      <div style="display:flex;gap:.6em;margin-top:.5em">
+        <button class="knopf" type="submit">Speichern</button>
+        <button class="knopf sekundaer" type="button" onclick="schliesseModal()">Abbrechen</button>
+      </div>
+    </form>`);
+  document.getElementById('mb-form').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const payload = {
+      abteilung: document.getElementById('mb-abteilung').value,
+      rolle: document.getElementById('mb-rolle').value,
+      kontokorrektur: parseFloat(document.getElementById('mb-korrektur').value) || 0,
+      austrittsdatum: document.getElementById('mb-austritt').value || null
+    };
+    const { error } = await sb.from('mitarbeiter').update(payload).eq('id', m.id);
+    if(error){ document.getElementById('mb-fehler').textContent = error.message; return; }
+    schliesseModal();
+    if(m.email === ich.email) await ladeGrunddaten();
+    await ladeMitarbeiterListe();
+  });
+}
+
+async function renderFeiertage(){
+  const el = document.getElementById('tab-feiertage');
+  el.innerHTML = `
+    <div class="block">
+      <h2>Feiertag hinzufügen</h2>
+      <form id="neuer-feiertag-form" class="formular-reihe">
+        <div class="feld"><label>Datum</label><input id="nf-datum" type="date" required></div>
+        <div class="feld"><label>Bezeichnung</label><input id="nf-bezeichnung" required></div>
+        <button class="knopf" type="submit">Hinzufügen</button>
+      </form>
+      <p class="fehler" id="nf-fehler"></p>
+    </div>
+    <div class="block">
+      <h2>Feiertage</h2>
+      <div id="feiertage-liste"></div>
+    </div>`;
+  document.getElementById('neuer-feiertag-form').addEventListener('submit', neuerFeiertagAbsenden);
+  await ladeFeiertageListe();
+}
+
+async function ladeFeiertageListe(){
+  const { data, error } = await sb.from('feiertage').select('*').order('datum');
+  const ziel = document.getElementById('feiertage-liste');
+  if(error){ ziel.innerHTML = error.message; return; }
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Datum</th><th>Bezeichnung</th><th></th></tr></thead>
+    <tbody>${data.map(f=>`<tr>
+      <td>${formatDatum(f.datum)}</td><td>${f.bezeichnung}</td>
+      <td><button class="knopf gefahr klein" onclick="feiertagLoeschen('${f.id}')">Löschen</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function neuerFeiertagAbsenden(e){
+  e.preventDefault();
+  const datum = document.getElementById('nf-datum').value;
+  const bezeichnung = document.getElementById('nf-bezeichnung').value.trim();
+  const fehlerEl = document.getElementById('nf-fehler');
+  fehlerEl.textContent = '';
+  const { error } = await sb.from('feiertage').insert({ datum, bezeichnung });
+  if(error){ fehlerEl.textContent = error.message; return; }
+  document.getElementById('neuer-feiertag-form').reset();
+  feiertageSet.add(datum);
+  await ladeFeiertageListe();
+}
+
+async function feiertagLoeschen(id){
+  if(!confirm('Diesen Feiertag wirklich löschen?')) return;
+  await sb.from('feiertage').delete().eq('id', id);
+  await ladeGrunddaten();
+  await ladeFeiertageListe();
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-pass').value;
+  const fehlerEl = document.getElementById('login-fehler');
+  fehlerEl.textContent = '';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){ fehlerEl.textContent = 'Anmeldung fehlgeschlagen: ' + error.message; return; }
+  await angemeldet(data.user);
+});
+
+document.getElementById('abmelden').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  ich = null; meinMitarbeiter = null;
+  zeigeLogin();
+});
+
+document.querySelectorAll('#tabs button').forEach(b=>{
+  b.addEventListener('click', ()=> tabWechseln(b.dataset.tab));
+});
+
+init();
+</script>
+</body>
+</html>
