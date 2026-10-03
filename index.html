@@ -802,37 +802,71 @@ async function renderAntraegeVerwalter(){
   await ladeAlleAntraege();
 }
 
+let antragsDaten = [], personenNachId = new Map();
+
+// Urlaubskonto zum Ende des beantragten Zeitraums – also der Stand, den der
+// Mitarbeiter hätte, wenn dieser Antrag genehmigt wird. Der Anspruch wächst
+// täglich mit, deshalb zählt nicht der heutige Stand.
+function kontoNachAntrag(a){
+  const m = personenNachId.get(a.mitarbeiter_id);
+  if(!m || a.art !== 'Urlaub') return null;
+  const tage = Math.max(0, Math.floor(
+    (new Date(a.bis+'T00:00:00Z') - new Date(m.eintrittsdatum+'T00:00:00Z')) / 86400000));
+  const anspruch = tage/30*Number(m.urlaubssatz) + Number(m.kontokorrektur||0);
+  const verbraucht = Number(m.konsumiert||0) + (a.status === 'genehmigt' ? 0 : Number(a.werktage));
+  return anspruch - verbraucht;
+}
+
 async function ladeAlleAntraege(){
   let q = sb.from('abwesenheiten')
     .select('*, mitarbeiter!abwesenheiten_mitarbeiter_id_fkey(vorname,nachname,abteilung)')
     .order('erstellt_am', { ascending:false });
   if(antraegeFilter === 'offen') q = q.eq('status','offen');
-  const { data, error } = await q;
+  const [{ data, error }, { data: leute }] = await Promise.all([
+    q, sb.from('mitarbeiter_uebersicht').select('id,vollername,abteilung,eintrittsdatum,urlaubssatz,kontokorrektur,konsumiert')
+  ]);
+  personenNachId = new Map((leute||[]).map(m => [m.id, m]));
+  antragsDaten = data || [];
+
   const ziel = $('antraege-liste');
   if(error){ ziel.innerHTML = `<p class="fehler">${esc(error.message)}</p>`; return; }
   if(!data.length){ ziel.innerHTML = '<p class="leer">Keine Anträge.</p>'; return; }
+
   ziel.innerHTML = `<div class="tabelle-wrapper"><table>
     <thead><tr><th>Mitarbeiter</th><th>Abteilung</th><th>Art</th><th>Von</th><th>Bis</th>
-      <th class="rechts">Werktage</th><th>Beleg</th><th>Status</th><th></th></tr></thead>
-    <tbody>${data.map(a => `<tr>
+      <th class="rechts">Werktage</th><th class="rechts">Konto danach</th><th>Beleg</th><th>Status</th><th></th></tr></thead>
+    <tbody>${data.map(a => {
+      const konto = kontoNachAntrag(a);
+      const minus = konto !== null && konto < -0.001;
+      return `<tr>
       <td>${esc(a.mitarbeiter ? a.mitarbeiter.vorname+' '+a.mitarbeiter.nachname : '—')}</td>
       <td>${esc(a.mitarbeiter?.abteilung || '—')}</td>
       <td><span class="marke art-${esc(a.art)}">${esc(a.art)}</span></td>
       <td>${formatDatum(a.von)}</td><td>${formatDatum(a.bis)}</td>
       <td class="rechts">${formatZahl(a.werktage)}</td>
+      <td class="rechts" ${konto===null ? '' : `style="color:${minus?'var(--rot)':'var(--gruen)'};font-weight:600"
+        title="Urlaubskonto am ${formatDatum(a.bis)}, wenn dieser Antrag genehmigt wird"`}>
+        ${konto===null ? '—' : (minus ? formatZahl(konto)+' ⚠' : formatZahl(konto))}</td>
       <td>${a.beleg_pfad ? `<button class="knopf sekundaer klein" data-beleg="${esc(a.beleg_pfad)}">Ansehen</button>` : '—'}</td>
       <td><span class="marke status-${esc(a.status)}">${esc(a.status)}</span></td>
-      <td>${a.status==='offen'
-        ? `<button class="knopf klein" data-ja="${a.id}">Genehmigen</button>
-           <button class="knopf gefahr klein" data-nein="${a.id}">Ablehnen</button>`
-        : `<button class="knopf sekundaer klein" data-loeschen="${a.id}">Löschen</button>`}</td>
-    </tr>`).join('')}</tbody></table></div>`;
+      <td style="display:flex;gap:.4em;flex-wrap:wrap">
+        ${a.status==='offen'
+          ? `<button class="knopf klein" data-ja="${a.id}">Genehmigen</button>
+             <button class="knopf gefahr klein" data-nein="${a.id}">Ablehnen</button>`
+          : `<button class="knopf sekundaer klein" data-loeschen="${a.id}">Löschen</button>`}
+        ${a.art==='Urlaub' ? `<button class="knopf sekundaer klein" data-bestaetigung="${a.id}">Bestätigung</button>` : ''}
+      </td></tr>`;
+    }).join('')}</tbody></table></div>
+    ${data.some(a => { const k = kontoNachAntrag(a); return k !== null && k < -0.001; })
+      ? `<p class="leer" style="margin-top:1em;color:var(--rot)">⚠ Rot bedeutet: Der Mitarbeiter wäre am Ende des Zeitraums im Minus.</p>` : ''}`;
 
   ziel.querySelectorAll('[data-beleg]').forEach(b => b.addEventListener('click', async () => {
     const { data: link, error } = await sb.storage.from('krankmeldungen').createSignedUrl(b.dataset.beleg, 120);
     if(error || !link){ alert('Beleg konnte nicht geöffnet werden: ' + (error?.message || 'unbekannt')); return; }
     window.open(link.signedUrl, '_blank');
   }));
+  ziel.querySelectorAll('[data-bestaetigung]').forEach(b =>
+    b.addEventListener('click', () => urlaubsbestaetigung(b.dataset.bestaetigung)));
   ziel.querySelectorAll('[data-ja]').forEach(b => b.addEventListener('click', () => entscheiden(b.dataset.ja,'genehmigt')));
   ziel.querySelectorAll('[data-nein]').forEach(b => b.addEventListener('click', () => entscheiden(b.dataset.nein,'abgelehnt')));
   ziel.querySelectorAll('[data-loeschen]').forEach(b => b.addEventListener('click', async () => {
@@ -840,6 +874,73 @@ async function ladeAlleAntraege(){
     await sb.from('abwesenheiten').delete().eq('id', b.dataset.loeschen);
     await ladeAlleAntraege();
   }));
+}
+
+/* ---------- Urlaubsbestätigung zum Ausdrucken / als PDF ---------- */
+
+function naechsterWerktag(isoStart, richtung){
+  const d = new Date(isoStart+'T00:00:00Z');
+  for(let i=0; i<400; i++){
+    d.setUTCDate(d.getUTCDate() + richtung);
+    const iso = d.toISOString().slice(0,10);
+    const tag = d.getUTCDay();
+    if(tag !== 0 && tag !== 6 && !feiertage.has(iso)) return iso;
+  }
+  return '';
+}
+
+function urlaubsbestaetigung(id){
+  const a = antragsDaten.find(x => x.id === id);
+  if(!a) return;
+  const m = personenNachId.get(a.mitarbeiter_id);
+  const name = m ? m.vollername : (a.mitarbeiter ? a.mitarbeiter.vorname+' '+a.mitarbeiter.nachname : '');
+  const abteilung = m?.abteilung || a.mitarbeiter?.abteilung || '';
+  const letzterArbeitstag = naechsterWerktag(a.von, -1);
+  const ersterArbeitstag = naechsterWerktag(a.bis, +1);
+
+  const fenster = window.open('', '_blank');
+  if(!fenster){ alert('Das Fenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben.'); return; }
+  fenster.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8">
+<title>Urlaubsbestätigung ${esc(name)}</title>
+<style>
+  @page{ size:A4; margin:22mm 20mm; }
+  body{ font-family:Arial,Helvetica,sans-serif; font-size:13pt; color:#000; line-height:2.1; margin:0 }
+  .kopf{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2.2em }
+  h1{ font-size:17pt; letter-spacing:.06em; margin:0 }
+  .firma{ font-size:10pt; color:#444; line-height:1.4; text-align:right }
+  .wert{ border-bottom:1px solid #000; padding:0 .5em; display:inline-block; min-width:9em }
+  .wert.lang{ min-width:15em }
+  .zeile{ margin-bottom:.5em }
+  .unterschriften{ display:flex; justify-content:space-between; margin-top:5em; font-size:11pt }
+  .unterschriften div{ width:45%; border-top:1px solid #000; padding-top:.5em; text-align:center }
+  @media print{ .drucken{ display:none } }
+  .drucken{ margin-top:3em; padding:.7em 1.4em; font-size:12pt; cursor:pointer }
+</style></head><body>
+  <div class="kopf">
+    <h1>URLAUBSBESTÄTIGUNG</h1>
+    <div class="firma">G.A.B GmbH<br>Datum: ${formatDatum(heuteIso())}</div>
+  </div>
+
+  <div class="zeile">NAME: <span class="wert lang">${esc(name)}</span>
+    &nbsp;&nbsp;&nbsp; Abteilung: <span class="wert">${esc(abteilung)}</span></div>
+
+  <div class="zeile">URLAUB für den Zeitraum von <span class="wert">${formatDatum(a.von)}</span>
+    bis <span class="wert">${formatDatum(a.bis)}</span></div>
+
+  <div class="zeile">Gesamt Werktage: <span class="wert">${formatZahl(a.werktage)}</span></div>
+
+  <div class="zeile">Letzter Arbeitstag: <span class="wert">${formatDatum(letzterArbeitstag)}</span></div>
+
+  <div class="zeile">Erster Arbeitstag: <span class="wert">${formatDatum(ersterArbeitstag)}</span></div>
+
+  <div class="unterschriften">
+    <div>Unterschrift Arbeitgeber</div>
+    <div>Unterschrift Arbeitnehmer</div>
+  </div>
+
+  <button class="drucken" onclick="window.print()">Drucken oder als PDF sichern</button>
+</body></html>`);
+  fenster.document.close();
 }
 
 async function entscheiden(id, status){
@@ -988,6 +1089,15 @@ let maNurAktive = true, importZeilen = [];
 async function renderMitarbeiter(){
   $('inhalt').innerHTML = `
     <div class="block">
+      <div class="block-kopf"><h2>Mitarbeiterliste</h2>
+        <div class="umschalter">
+          <button data-f="aktiv" class="${maNurAktive?'aktiv':''}">Aktive</button>
+          <button data-f="alle" class="${!maNurAktive?'aktiv':''}">Alle</button>
+        </div></div>
+      <div id="ma-liste"></div>
+    </div>
+
+    <div class="block">
       <h2>Neuen Mitarbeiter anlegen</h2>
       <form id="ma-form">
         <div class="formular-gitter">
@@ -1027,15 +1137,6 @@ async function renderMitarbeiter(){
       <p class="leer">Excel- oder CSV-Datei mit den Spalten <strong>Dienstnummer, Vorname, Nachname, Geburtsdatum, Abteilung, Eintrittsdatum</strong> (optional: Taetigkeit, Telefon, Adresse, Austrittsdatum). <a href="#" id="vorlage-link">Vorlage herunterladen</a></p>
       <div class="formular-reihe" style="margin-top:1em"><input id="import-datei" type="file" accept=".xlsx,.xls,.csv"></div>
       <div id="import-vorschau"></div>
-    </div>
-
-    <div class="block">
-      <div class="block-kopf"><h2>Mitarbeiterliste</h2>
-        <div class="umschalter">
-          <button data-f="aktiv" class="${maNurAktive?'aktiv':''}">Aktive</button>
-          <button data-f="alle" class="${!maNurAktive?'aktiv':''}">Alle</button>
-        </div></div>
-      <div id="ma-liste"></div>
     </div>`;
 
   $('ma-form').addEventListener('submit', mitarbeiterAnlegen);
