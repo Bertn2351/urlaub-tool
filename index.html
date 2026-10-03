@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0f1214">
+<meta name="theme-color" content="#f6f7f9">
 <title>Urlaub · G.A.B GmbH</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,13 +12,15 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
-  --grund:#0f1214; --karte:#171b1f; --karte-hoch:#1d232a; --rand:#272f38;
-  --text:#e9edf2; --leise:#8b95a3;
-  --orange:#F68712; --orange-dunkel:#d9740a; --schimmer:rgba(246,135,18,.13);
-  --gruen:#48c25e; --gruen-bg:rgba(72,194,94,.14);
-  --rot:#f0624d;   --rot-bg:rgba(240,98,77,.14);
-  --gelb:#e8a317;  --gelb-bg:rgba(232,163,23,.14);
-  --blau:#5aa9ff;  --blau-bg:rgba(90,169,255,.14);
+  color-scheme:light;
+  --grund:#f6f7f9; --karte:#ffffff; --karte-hoch:#f2f4f7; --rand:#dce1e7;
+  --text:#17212b; --leise:#667383;
+  --orange:#e97808; --orange-dunkel:#c95f00; --schimmer:rgba(233,120,8,.11);
+  --gruen:#24853a; --gruen-bg:#eaf7ed;
+  --rot:#c74432;   --rot-bg:#fff0ed;
+  --gelb:#9a6800;  --gelb-bg:#fff7df;
+  --blau:#2775c7;  --blau-bg:#eaf3fc;
+  --kalender:#e9edf2; --kalender-we:#f4f5f7; --kalender-feiertag:#fff1dc;
   --radius:14px;
 }
 *{box-sizing:border-box}
@@ -27,10 +29,10 @@ body{margin:0;background:var(--grund);color:var(--text);
 h1,h2,h3{font-family:Archivo,system-ui,sans-serif;margin:0 0 .5em;font-weight:700;letter-spacing:-.015em}
 button{font-family:inherit;cursor:pointer}
 input,select,textarea{font-family:inherit;font-size:.95rem;padding:.62em .75em;
-  border:1px solid var(--rand);border-radius:9px;background:#11161a;color:var(--text)}
+  border:1px solid var(--rand);border-radius:9px;background:#fff;color:var(--text)}
 input:focus,select:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px var(--schimmer)}
-input[type=date]{color-scheme:dark}
-input[readonly]{background:#0c1013;color:var(--leise)}
+input[type=date]{color-scheme:light}
+input[readonly]{background:#f1f3f5;color:var(--leise)}
 a{color:var(--orange)}
 .fehler{color:var(--rot);font-size:.88rem;min-height:1.2em;margin:.4em 0 0}
 .erfolg{background:var(--gruen-bg);color:var(--gruen);padding:.9em 1.1em;border-radius:10px;
@@ -44,21 +46,21 @@ a{color:var(--orange)}
 
 /* ---------- Anmeldung ---------- */
 #login{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:1.5em;
-  background:radial-gradient(900px 500px at 50% -10%,rgba(246,135,18,.10),transparent 70%)}
+  background:radial-gradient(900px 500px at 50% -10%,rgba(246,135,18,.16),transparent 70%)}
 #login-karte{width:min(400px,100%);background:var(--karte);border:1px solid var(--rand);
-  border-radius:20px;padding:2.4em 2.2em;box-shadow:0 30px 70px rgba(0,0,0,.5)}
+  border-radius:20px;padding:2.4em 2.2em;box-shadow:0 24px 60px rgba(23,33,43,.14)}
 #login-karte .logo.gross{margin:0 auto 1.6em}
 #login-karte h1{font-size:1.05rem;text-align:center;margin-bottom:.3em}
 #login-karte .unterzeile{text-align:center;color:var(--leise);font-size:.84rem;margin:0 0 1.8em}
-#rollen-umschalter{display:flex;background:#10151a;border:1px solid var(--rand);
+#rollen-umschalter{display:flex;background:var(--karte-hoch);border:1px solid var(--rand);
   border-radius:11px;padding:.28em;margin-bottom:1.5em}
 #rollen-umschalter button{flex:1;background:none;border:none;padding:.65em;border-radius:8px;
   color:var(--leise);font-weight:600;font-size:.88rem;transition:.15s}
-#rollen-umschalter button.rolle-aktiv{background:var(--orange);color:#1a0e02}
+#rollen-umschalter button.rolle-aktiv{background:var(--orange);color:#fff}
 .login-formular{display:flex;flex-direction:column;gap:.9em}
 .login-formular input{padding:.85em .9em;font-size:1rem}
 #login-code{font-family:'IBM Plex Mono',monospace;letter-spacing:.14em;text-align:center;font-size:1.25rem}
-.login-formular button[type=submit]{background:var(--orange);color:#1a0e02;border:none;
+.login-formular button[type=submit]{background:var(--orange);color:#fff;border:none;
   border-radius:10px;padding:.9em;font-weight:700;font-size:.98rem;margin-top:.3em}
 .login-formular button[type=submit]:hover{background:var(--orange-dunkel)}
 
@@ -116,7 +118,7 @@ fieldset{border:none;border-top:1px solid var(--rand);margin:1.5em 0 0;padding:1
 legend{font-size:.72rem;font-weight:700;color:var(--orange);text-transform:uppercase;
   letter-spacing:.08em;padding:0}
 
-.knopf{background:var(--orange);color:#1a0e02;border:none;border-radius:9px;
+.knopf{background:var(--orange);color:#fff;border:none;border-radius:9px;
   padding:.68em 1.3em;font-weight:700;font-size:.9rem}
 .knopf:hover{background:var(--orange-dunkel)}
 .knopf:disabled{opacity:.4;cursor:not-allowed}
@@ -135,16 +137,16 @@ legend{font-size:.72rem;font-weight:700;color:var(--orange);text-transform:upper
 .art-Krank{background:var(--rot-bg);color:var(--rot)}
 .art-Sonstige{background:var(--gelb-bg);color:var(--gelb)}
 
-.umschalter{display:inline-flex;gap:.25em;background:#10151a;border:1px solid var(--rand);
+.umschalter{display:inline-flex;gap:.25em;background:var(--karte-hoch);border:1px solid var(--rand);
   padding:.26em;border-radius:10px}
 .umschalter button{background:none;border:none;padding:.48em 1em;border-radius:8px;
   color:var(--leise);font-size:.85rem;font-weight:600}
-.umschalter button.aktiv{background:var(--orange);color:#1a0e02}
+.umschalter button.aktiv{background:var(--orange);color:#fff}
 
 .hinweis{background:var(--gelb-bg);color:var(--gelb);padding:.9em 1.1em;border-radius:10px;
   font-size:.9rem;margin-bottom:1.3em;border:1px solid rgba(232,163,23,.25)}
 .konto-leiste{display:flex;align-items:baseline;gap:.6em;flex-wrap:wrap;
-  padding:.9em 1.1em;border-radius:10px;background:#10151a;border:1px solid var(--rand);margin-top:.3em}
+  padding:.9em 1.1em;border-radius:10px;background:var(--karte-hoch);border:1px solid var(--rand);margin-top:.3em}
 .konto-leiste.zuviel{border-color:rgba(240,98,77,.5);background:var(--rot-bg)}
 .konto-leiste .gross{font-family:'IBM Plex Mono',monospace;font-size:1.45rem;font-weight:600;color:var(--orange)}
 .konto-leiste.zuviel .gross{color:var(--rot)}
@@ -168,9 +170,9 @@ legend{font-size:.72rem;font-weight:700;color:var(--orange);text-transform:upper
 .kalender td.name-spalte,.kalender th.name-spalte{text-align:left;padding-right:.9em;
   font-weight:500;position:sticky;left:0;background:var(--karte);min-width:155px;
   font-size:.84rem;text-transform:none;letter-spacing:0;color:var(--text)}
-.kalender td.zelle{width:21px;height:23px;border-radius:4px;background:#1b2128}
-.kalender td.zelle.we{background:#151a20}
-.kalender td.zelle.feiertag{background:#2a2118}
+.kalender td.zelle{width:21px;height:23px;border-radius:4px;background:var(--kalender)}
+.kalender td.zelle.we{background:var(--kalender-we)}
+.kalender td.zelle.feiertag{background:var(--kalender-feiertag)}
 .kalender td.zelle.Urlaub{background:var(--blau)}
 .kalender td.zelle.Krank{background:var(--rot)}
 .kalender td.zelle.Sonstige{background:var(--gelb)}
@@ -182,12 +184,41 @@ legend{font-size:.72rem;font-weight:700;color:var(--orange);text-transform:upper
 #modal-hintergrund{position:fixed;inset:0;background:rgba(5,8,11,.72);display:flex;
   align-items:center;justify-content:center;padding:1em;z-index:60;backdrop-filter:blur(3px)}
 #modal{background:var(--karte);border:1px solid var(--rand);border-radius:18px;padding:1.9em;
-  width:min(580px,100%);max-height:90vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  width:min(580px,100%);max-height:90vh;overflow:auto;box-shadow:0 30px 80px rgba(0,0,0,.22)}
+
+/* ---------- Dokument-Upload ---------- */
+.dokument-aktion{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1em;
+  align-items:stretch;margin-top:1.15em}
+.dokument-upload{min-height:154px;display:flex;align-items:center;justify-content:center;
+  gap:1.15em;padding:1.35em 1.5em;border:2px dashed #c8d0d9;border-radius:14px;
+  background:#fafbfc;color:var(--text);cursor:pointer;text-align:left;
+  transition:border-color .16s ease,background .16s ease,box-shadow .16s ease,transform .16s ease}
+.dokument-upload:hover,.dokument-upload:focus-visible{border-color:var(--orange);
+  background:#fffaf5;box-shadow:0 0 0 4px var(--schimmer);outline:none}
+.dokument-upload.drag-aktiv{border-color:var(--orange);background:#fff4e8;
+  box-shadow:0 0 0 5px var(--schimmer);transform:translateY(-1px)}
+.dokument-upload.hat-datei{border-style:solid;border-color:#a9d7b2;background:#f4fbf6}
+.dokument-upload-symbol{width:48px;height:48px;display:grid;place-items:center;flex:0 0 auto;
+  border-radius:13px;background:var(--schimmer);color:var(--orange)}
+.dokument-upload.hat-datei .dokument-upload-symbol{background:var(--gruen-bg);color:var(--gruen)}
+.dokument-upload-symbol svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.dokument-upload-text{min-width:0;flex:1}
+.dokument-upload-text strong{display:block;font-family:Archivo,system-ui,sans-serif;font-size:1rem;margin-bottom:.25em}
+.dokument-upload-text span{display:block;color:var(--leise);font-size:.85rem;line-height:1.45;
+  overflow-wrap:anywhere}
+.dokument-datei-entfernen{display:none;align-self:center;background:#fff;border:1px solid var(--rand);
+  border-radius:9px;color:var(--leise);font-size:.82rem;font-weight:600;padding:.55em .75em}
+.dokument-upload.hat-datei .dokument-datei-entfernen{display:block}
+.dokument-datei-entfernen:hover{border-color:var(--rot);color:var(--rot);background:var(--rot-bg)}
+.dokument-aktion>.knopf{min-width:132px}
 
 [hidden]{display:none!important}
 @media(max-width:640px){
   main{padding:1.1em 1em 3em} header{padding:.8em 1em} #tabs{padding:.45em 1em;top:53px}
   .kopf-titel{display:none} .logo{width:120px;height:22px}
+  .dokument-aktion{grid-template-columns:1fr}.dokument-upload{min-height:180px;flex-direction:column;text-align:center}
+  .dokument-aktion>.knopf{min-height:48px}.dokument-datei-entfernen{align-self:auto}
 }
 </style>
 </head>
@@ -658,7 +689,7 @@ async function belegAuswerten(datei){
     const von = erkannt.datum_von || heuteIso();
     const bis = erkannt.datum_bis || von;
     $('krank-ergebnis').innerHTML = `
-      <div class="block" style="margin:1.2em 0 0;background:#10151a">
+      <div class="block" style="margin:1.2em 0 0;background:var(--karte-hoch)">
         <p class="leer" style="margin-top:0">${erkannt.quelle ? esc(erkannt.quelle)+'. ' : ''}Bitte den Zeitraum prüfen.</p>
         <div class="formular-reihe">
           <div class="feld"><label>Krank von</label><input id="krank-von" type="date" value="${esc(von)}"></div>
@@ -840,8 +871,8 @@ async function renderKalender(){
         <span><i style="background:var(--blau)"></i> Urlaub</span>
         <span><i style="background:var(--rot)"></i> Krank</span>
         <span><i style="background:var(--gelb)"></i> Sonstige</span>
-        <span><i style="background:#2a2118"></i> Feiertag</span>
-        <span><i style="background:#151a20"></i> Wochenende</span>
+        <span><i style="background:var(--kalender-feiertag)"></i> Feiertag</span>
+        <span><i style="background:var(--kalender-we)"></i> Wochenende</span>
         <span><i style="background:var(--blau);opacity:.42"></i> blass = noch nicht genehmigt</span>
       </div>
     </div>`;
@@ -1273,10 +1304,12 @@ async function renderAuswertung(){
 /* ===================== Dokument ===================== */
 
 let dokLeute = [];
+let dokDatei = null;
 const DOK_ARTEN = { einstellung:'Neuer Mitarbeiter', kuendigung:'Kündigung',
   krankmeldung:'Krankmeldung', urlaubsantrag:'Urlaubsantrag', unbekannt:'Unbekannt' };
 
 async function renderDokument(){
+  dokDatei = null;
   const { data } = await sb.from('mitarbeiter_uebersicht')
     .select('id,vollername,vorname,nachname,austrittsdatum').order('vollername');
   dokLeute = (data||[]).filter(m => !m.austrittsdatum);
@@ -1285,18 +1318,92 @@ async function renderDokument(){
     <div class="block">
       <h2>Dokument auslesen</h2>
       <p class="leer">PDF oder Foto einer Anmeldung, Kündigung, Krankmeldung oder eines Urlaubsantrags. Es wird nur ein Vorschlag erzeugt – gespeichert wird erst mit „Übernehmen".</p>
-      <div class="formular-reihe" style="margin-top:1em">
-        <input id="dok-datei" type="file" accept=".pdf,image/*">
-        <button class="knopf" type="button" id="dok-lesen">Auslesen</button>
+      <div class="dokument-aktion">
+        <div id="dok-upload" class="dokument-upload" role="button" tabindex="0"
+             aria-label="PDF oder Bild auswählen oder hier ablegen">
+          <input id="dok-datei" type="file" accept=".pdf,image/*" hidden>
+          <span class="dokument-upload-symbol" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+          </span>
+          <span class="dokument-upload-text">
+            <strong id="dok-datei-titel">Datei hier ablegen</strong>
+            <span id="dok-datei-info">oder klicken zum Auswählen · PDF, JPG oder PNG</span>
+          </span>
+          <button class="dokument-datei-entfernen" type="button" id="dok-datei-entfernen">Entfernen</button>
+        </div>
+        <button class="knopf" type="button" id="dok-lesen" disabled>Auslesen</button>
       </div>
       <p class="fehler" id="dok-fehler"></p>
       <div id="dok-ergebnis"></div>
     </div>`;
+  const upload = $('dok-upload');
+  const eingabe = $('dok-datei');
+  upload.addEventListener('click', e => {
+    if(!e.target.closest('#dok-datei-entfernen')) eingabe.click();
+  });
+  upload.addEventListener('keydown', e => {
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); eingabe.click(); }
+  });
+  eingabe.addEventListener('change', () => dokumentDateiSetzen(eingabe.files[0]));
+  ['dragenter','dragover'].forEach(name => upload.addEventListener(name, e => {
+    e.preventDefault(); e.stopPropagation(); upload.classList.add('drag-aktiv');
+  }));
+  upload.addEventListener('dragleave', e => {
+    if(!upload.contains(e.relatedTarget)) upload.classList.remove('drag-aktiv');
+  });
+  upload.addEventListener('drop', e => {
+    e.preventDefault(); e.stopPropagation(); upload.classList.remove('drag-aktiv');
+    dokumentDateiSetzen(e.dataTransfer.files[0]);
+  });
+  $('dok-datei-entfernen').addEventListener('click', e => {
+    e.stopPropagation(); dokumentDateiSetzen(null);
+  });
   $('dok-lesen').addEventListener('click', dokumentLesen);
 }
 
+function dokumentDateiSetzen(datei){
+  const upload = $('dok-upload');
+  const eingabe = $('dok-datei');
+  const fehler = $('dok-fehler');
+  fehler.textContent = '';
+
+  const dateiErlaubt = !datei || datei.type === 'application/pdf' || datei.type.startsWith('image/') ||
+    /\.(pdf|png|jpe?g|webp|heic)$/i.test(datei.name);
+  if(!dateiErlaubt){
+    dokDatei = null;
+    eingabe.value = '';
+    upload.classList.remove('hat-datei');
+    $('dok-datei-titel').textContent = 'Datei hier ablegen';
+    $('dok-datei-info').textContent = 'oder klicken zum Auswählen · PDF, JPG oder PNG';
+    $('dok-lesen').disabled = true;
+    fehler.textContent = 'Bitte eine PDF- oder Bilddatei auswählen.';
+    return;
+  }
+
+  dokDatei = datei || null;
+  if(!dokDatei){
+    eingabe.value = '';
+    upload.classList.remove('hat-datei');
+    $('dok-datei-titel').textContent = 'Datei hier ablegen';
+    $('dok-datei-info').textContent = 'oder klicken zum Auswählen · PDF, JPG oder PNG';
+    $('dok-lesen').disabled = true;
+    return;
+  }
+
+  upload.classList.add('hat-datei');
+  $('dok-datei-titel').textContent = dokDatei.name;
+  $('dok-datei-info').textContent = `${dokDatei.type === 'application/pdf' ? 'PDF' : 'Bild'} · ${dateigroesse(dokDatei.size)} · bereit zum Auslesen`;
+  $('dok-lesen').disabled = false;
+}
+
+function dateigroesse(bytes){
+  if(bytes < 1024) return `${bytes} B`;
+  if(bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`;
+}
+
 async function dokumentLesen(){
-  const datei = $('dok-datei').files[0];
+  const datei = dokDatei || $('dok-datei').files[0];
   const fehler = $('dok-fehler');
   fehler.textContent = ''; $('dok-ergebnis').innerHTML = '';
   if(!datei){ fehler.textContent = 'Bitte zuerst eine Datei auswählen.'; return; }
@@ -1305,7 +1412,7 @@ async function dokumentLesen(){
     dokumentErgebnis(await edgeAufruf('hyper-handler', {
       dateiBase64: await dateiZuBase64(datei), mediaType: datei.type }));
   } catch(err){ fehler.textContent = 'Auslesen fehlgeschlagen: ' + err.message; }
-  finally { knopf.disabled = false; knopf.textContent = 'Auslesen'; }
+  finally { knopf.disabled = !dokDatei; knopf.textContent = 'Auslesen'; }
 }
 
 function dokumentErgebnis(d){
@@ -1315,7 +1422,7 @@ function dokumentErgebnis(d){
     m.nachname.trim().toLowerCase() === String(d.nachname||'').trim().toLowerCase());
 
   $('dok-ergebnis').innerHTML = `
-    <div class="block" style="margin:1.2em 0 0;background:#10151a">
+    <div class="block" style="margin:1.2em 0 0;background:var(--karte-hoch)">
       ${d.quelle ? `<p class="leer" style="margin-top:0">Quelle: ${esc(d.quelle)}. Leere Felder standen nicht im Dokument.</p>` : ''}
       ${(d.sicherheit==='niedrig' || art==='unbekannt')
         ? `<div class="hinweis" style="margin-top:1em">Die Erkennung ist unsicher${d.hinweis ? ': '+esc(d.hinweis) : ''}. Bitte genau prüfen.</div>` : ''}
@@ -1406,7 +1513,7 @@ async function dokumentUebernehmen(){
 
     } else throw new Error('Art unbekannt – bitte manuell im passenden Reiter eintragen.');
 
-    $('dok-datei').value = '';
+    dokumentDateiSetzen(null);
   } catch(err){ fehler.textContent = err.message; }
 }
 
