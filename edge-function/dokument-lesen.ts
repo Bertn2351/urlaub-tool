@@ -36,8 +36,11 @@ async function pdfZeilen(pdf: Uint8Array): Promise<string[]> {
 
   while ((treffer = marke.exec(latin)) !== null) {
     const start = treffer.index + treffer[0].length;
-    const ende = latin.indexOf('endstream', start);
+    let ende = latin.indexOf('endstream', start);
     if (ende < 0) continue;
+    // Der Zeilenumbruch vor "endstream" gehoert nicht zu den Daten.
+    // Der Entpacker in Deno bricht sonst mit "Muell nach den Daten" ab.
+    while (ende > start && (latin[ende - 1] === '\n' || latin[ende - 1] === '\r')) ende--;
 
     let inhalt: string;
     try {
@@ -170,9 +173,11 @@ async function kiLesen(apiKey: string, dateiBase64: string, mediaType: string, r
   try {
     const ergebnis = JSON.parse(roh);
     ergebnis.quelle = 'Von der KI gelesen';
-    if (!ergebnis.geburtsdatum && ergebnis.sv_nummer) {
+    // Die SV-Nummer enthaelt das Geburtsdatum. Das ist eine feste Rechenregel und
+    // damit verlaesslicher als jede Erkennung - sie hat hier immer Vorrang.
+    if (ergebnis.sv_nummer) {
       const abgeleitet = geburtstagAusSvnr(String(ergebnis.sv_nummer));
-      if (abgeleitet) {
+      if (abgeleitet && abgeleitet !== ergebnis.geburtsdatum) {
         ergebnis.geburtsdatum = abgeleitet;
         ergebnis.quelle += ', Geburtsdatum aus der SV-Nummer berechnet';
       }
