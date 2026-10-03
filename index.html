@@ -441,28 +441,138 @@ async function renderAntraege(){
   }
   $('inhalt').innerHTML = `
     <div class="block">
-      <h2>Neuen Antrag stellen</h2>
+      <h2>Urlaub beantragen</h2>
       <form id="antrag-form" class="formular-reihe">
-        <div class="feld"><label>Art</label>
-          <select id="an-art">${ARTEN.map(a=>`<option>${a}</option>`).join('')}</select></div>
         <div class="feld"><label>Von</label><input id="an-von" type="date" required></div>
         <div class="feld"><label>Bis</label><input id="an-bis" type="date" required></div>
         <div class="feld"><label>Werktage</label><input id="an-werktage" readonly value="0" style="width:5em"></div>
         <div class="feld" style="flex:1;min-width:180px"><label>Anmerkung (optional)</label><input id="an-kommentar"></div>
-        <button class="knopf" type="submit">Beantragen</button>
+        <button class="knopf" type="submit" id="an-knopf">Beantragen</button>
       </form>
+      <p id="an-konto" class="leer"></p>
       <p class="fehler" id="an-fehler"></p>
     </div>
+
+    <div class="block">
+      <h2>Krankmeldung einreichen</h2>
+      <p class="leer">Krankmeldung abfotografieren – am Handy öffnet sich direkt die Kamera. Das Foto geht mit dem Antrag an die Verwaltung.</p>
+      <div class="formular-reihe">
+        <input id="krank-datei" type="file" accept="image/*,.pdf" capture="environment">
+        <button class="knopf" type="button" id="krank-lesen">Foto auswerten</button>
+      </div>
+      <p class="fehler" id="krank-fehler"></p>
+      <div id="krank-ergebnis"></div>
+    </div>
+
     <div class="block"><h2>Meine Anträge</h2><div id="meine-antraege"></div></div>`;
 
   const rechnen = () => {
     const v = $('an-von').value, b = $('an-bis').value;
-    $('an-werktage').value = (v && b) ? werktageZaehlen(v,b) : 0;
+    const tage = (v && b) ? werktageZaehlen(v,b) : 0;
+    $('an-werktage').value = tage;
+    zeigeUrlaubsgrenze(b, tage);
   };
   $('an-von').addEventListener('change', () => { if(!$('an-bis').value) $('an-bis').value = $('an-von').value; rechnen(); });
   $('an-bis').addEventListener('change', rechnen);
   $('antrag-form').addEventListener('submit', antragAbsenden);
+  $('krank-lesen').addEventListener('click', krankmeldungLesen);
+  zeigeUrlaubsgrenze('', 0);
   await ladeEigeneAntraege();
+}
+
+// Der Urlaubsanspruch wächst täglich mit. Deshalb wird er auf das Enddatum des
+// Antrags gerechnet und nicht auf heute – sonst wäre ein Antrag für Dezember
+// im Oktober unnötig blockiert.
+function verfuegbarerUrlaub(bisIso){
+  if(!meinKonto) return 0;
+  const stichtag = bisIso ? new Date(bisIso+'T00:00:00Z') : new Date();
+  const eintritt = new Date(meinKonto.eintrittsdatum+'T00:00:00Z');
+  const tage = Math.max(0, Math.floor((stichtag - eintritt) / 86400000));
+  const anspruch = tage / 30 * Number(meinKonto.urlaubssatz) + Number(meinKonto.kontokorrektur || 0);
+  return anspruch - Number(meinKonto.konsumiert || 0) - Number(meinKonto.offen_urlaub || 0);
+}
+
+function zeigeUrlaubsgrenze(bisIso, beantragt){
+  const frei = verfuegbarerUrlaub(bisIso);
+  const el = $('an-konto');
+  const knopf = $('an-knopf');
+  if(!el) return;
+  const stichtag = bisIso ? ` bis zum ${formatDatum(bisIso)}` : ' Stand heute';
+  const zuviel = beantragt > frei + 0.001;
+  el.innerHTML = `Dir stehen${stichtag} <strong>${formatZahl(frei)} Urlaubstage</strong> zur Verfügung.`
+    + (meinKonto?.offen_urlaub > 0 ? ` (${formatZahl(meinKonto.offen_urlaub)} Tage sind bereits beantragt und noch offen.)` : '');
+  el.style.color = zuviel ? 'var(--rot)' : 'var(--muted)';
+  if(zuviel) el.innerHTML += `<br><strong>Das sind ${formatZahl(beantragt - frei)} Tage zu viel.</strong>`;
+  if(knopf) knopf.disabled = zuviel || beantragt <= 0;
+}
+
+async function krankmeldungLesen(){
+  const datei = $('krank-datei').files[0];
+  const fehler = $('krank-fehler');
+  fehler.textContent = ''; $('krank-ergebnis').innerHTML = '';
+  if(!datei){ fehler.textContent = 'Bitte zuerst ein Foto aufnehmen oder auswählen.'; return; }
+  const knopf = $('krank-lesen');
+  knopf.disabled = true; knopf.textContent = 'Werte aus …';
+  try {
+    const erkannt = await edgeAufruf('hyper-handler', {
+      dateiBase64: await dateiZuBase64(datei), mediaType: datei.type || 'image/jpeg'
+    });
+    const von = erkannt.datum_von || heuteIso();
+    const bis = erkannt.datum_bis || von;
+    $('krank-ergebnis').innerHTML = `
+      <div class="block" style="margin-top:1em;box-shadow:none;border:1px solid var(--rand)">
+        <p class="leer" style="margin-top:0">${erkannt.quelle ? esc(erkannt.quelle) + '. ' : ''}Bitte die Daten prüfen und bestätigen.</p>
+        <div class="formular-reihe">
+          <div class="feld"><label>Krank von</label><input id="krank-von" type="date" value="${esc(von)}"></div>
+          <div class="feld"><label>Krank bis</label><input id="krank-bis" type="date" value="${esc(bis)}"></div>
+          <div class="feld"><label>Werktage</label><input id="krank-werktage" readonly style="width:5em"></div>
+          <button class="knopf" type="button" id="krank-senden">Krankmeldung senden</button>
+        </div>
+        <p class="fehler" id="krank-send-fehler"></p>
+      </div>`;
+    const rechnen = () => {
+      const v = $('krank-von').value, b = $('krank-bis').value;
+      $('krank-werktage').value = (v && b) ? werktageZaehlen(v,b) : 0;
+    };
+    rechnen();
+    $('krank-von').addEventListener('change', rechnen);
+    $('krank-bis').addEventListener('change', rechnen);
+    $('krank-senden').addEventListener('click', () => krankmeldungSenden(datei));
+  } catch(err){
+    fehler.textContent = 'Auswerten fehlgeschlagen: ' + err.message;
+  } finally {
+    knopf.disabled = false; knopf.textContent = 'Foto auswerten';
+  }
+}
+
+async function krankmeldungSenden(datei){
+  const fehler = $('krank-send-fehler');
+  fehler.textContent = '';
+  const knopf = $('krank-senden');
+  knopf.disabled = true; knopf.textContent = 'Sende …';
+  try {
+    const von = $('krank-von').value, bis = $('krank-bis').value || $('krank-von').value;
+    const werktage = werktageZaehlen(von, bis);
+    if(werktage <= 0) throw new Error('In diesem Zeitraum liegt kein Werktag.');
+
+    const endung = (datei.name.split('.').pop() || 'jpg').toLowerCase();
+    const pfad = `${meinKonto.id}/${Date.now()}.${endung}`;
+    const { error: ladefehler } = await sb.storage.from('krankmeldungen').upload(pfad, datei);
+    if(ladefehler) throw new Error('Foto konnte nicht hochgeladen werden: ' + ladefehler.message);
+
+    const { error } = await sb.from('abwesenheiten').insert({
+      mitarbeiter_id: meinKonto.id, art: 'Krank', von, bis, werktage,
+      status: 'offen', beleg_pfad: pfad
+    });
+    if(error) throw new Error(error.message);
+
+    $('krank-ergebnis').innerHTML = `<div class="erfolg">Krankmeldung samt Foto wurde übermittelt.</div>`;
+    $('krank-datei').value = '';
+    await ladeEigeneAntraege();
+  } catch(err){
+    fehler.textContent = err.message;
+    knopf.disabled = false; knopf.textContent = 'Krankmeldung senden';
+  }
 }
 
 async function ladeEigeneAntraege(){
@@ -483,6 +593,8 @@ async function ladeEigeneAntraege(){
   ziel.querySelectorAll('[data-zurueck]').forEach(b => b.addEventListener('click', async () => {
     if(!confirm('Diesen Antrag wirklich zurückziehen?')) return;
     await sb.from('abwesenheiten').delete().eq('id', b.dataset.zurueck);
+    await ladeGrunddaten();
+    zeigeUrlaubsgrenze('', 0);
     await ladeEigeneAntraege();
   }));
 }
@@ -494,13 +606,19 @@ async function antragAbsenden(e){
   const von = $('an-von').value, bis = $('an-bis').value;
   const werktage = werktageZaehlen(von, bis);
   if(werktage <= 0){ fehler.textContent = 'In diesem Zeitraum liegt kein Werktag.'; return; }
+  if(werktage > verfuegbarerUrlaub(bis) + 0.001){
+    fehler.textContent = 'Dafür reicht dein Urlaubskonto nicht.';
+    return;
+  }
   const { error } = await sb.from('abwesenheiten').insert({
-    mitarbeiter_id: meinKonto.id, art: $('an-art').value, von, bis, werktage,
+    mitarbeiter_id: meinKonto.id, art: 'Urlaub', von, bis, werktage,
     kommentar: $('an-kommentar').value.trim() || null, status: 'offen'
   });
   if(error){ fehler.textContent = error.message; return; }
   $('antrag-form').reset();
   $('an-werktage').value = 0;
+  await ladeGrunddaten();
+  zeigeUrlaubsgrenze('', 0);
   await ladeEigeneAntraege();
 }
 
@@ -574,19 +692,27 @@ async function ladeAlleAntraege(){
   if(error){ ziel.innerHTML = `<p class="fehler">${esc(error.message)}</p>`; return; }
   if(!data.length){ ziel.innerHTML = '<p class="leer">Keine Anträge.</p>'; return; }
   ziel.innerHTML = `<div class="tabelle-wrapper"><table>
-    <thead><tr><th>Mitarbeiter</th><th>Abteilung</th><th>Art</th><th>Von</th><th>Bis</th><th class="zahl-spalte">Werktage</th><th>Status</th><th></th></tr></thead>
+    <thead><tr><th>Mitarbeiter</th><th>Abteilung</th><th>Art</th><th>Von</th><th>Bis</th><th class="zahl-spalte">Werktage</th><th>Beleg</th><th>Status</th><th></th></tr></thead>
     <tbody>${data.map(a => `<tr>
       <td>${esc(a.mitarbeiter ? a.mitarbeiter.vorname+' '+a.mitarbeiter.nachname : '—')}</td>
       <td>${esc(a.mitarbeiter?.abteilung || '—')}</td>
       <td><span class="badge art-${esc(a.art)}">${esc(a.art)}</span></td>
       <td>${formatDatum(a.von)}</td><td>${formatDatum(a.bis)}</td>
       <td class="zahl-spalte">${formatZahl(a.werktage)}</td>
+      <td>${a.beleg_pfad ? `<button class="knopf sekundaer klein" data-beleg="${esc(a.beleg_pfad)}">Ansehen</button>` : '—'}</td>
       <td><span class="badge status-${esc(a.status)}">${esc(a.status)}</span></td>
       <td>${a.status === 'offen'
         ? `<button class="knopf klein" data-ja="${a.id}">Genehmigen</button>
            <button class="knopf gefahr klein" data-nein="${a.id}">Ablehnen</button>`
         : `<button class="knopf sekundaer klein" data-loeschen="${a.id}">Löschen</button>`}</td>
     </tr>`).join('')}</tbody></table></div>`;
+
+  ziel.querySelectorAll('[data-beleg]').forEach(b => b.addEventListener('click', async () => {
+    const { data: link, error } = await sb.storage.from('krankmeldungen')
+      .createSignedUrl(b.dataset.beleg, 120);
+    if(error || !link){ alert('Beleg konnte nicht geöffnet werden: ' + (error?.message || 'unbekannt')); return; }
+    window.open(link.signedUrl, '_blank');
+  }));
 
   ziel.querySelectorAll('[data-ja]').forEach(b => b.addEventListener('click', () => entscheiden(b.dataset.ja, 'genehmigt')));
   ziel.querySelectorAll('[data-nein]').forEach(b => b.addEventListener('click', () => entscheiden(b.dataset.nein, 'abgelehnt')));
