@@ -158,6 +158,9 @@ legend{font-size:.72rem;font-weight:700;color:var(--orange);text-transform:upper
 .scan-umriss{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .scan-hinweis{position:absolute;left:0;right:0;bottom:0;padding:.6em;text-align:center;
   font-size:.84rem;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.7));line-height:1.4}
+.scan-zaehler{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:'IBM Plex Mono',monospace;font-size:5rem;font-weight:600;color:#fff;
+  text-shadow:0 2px 24px rgba(0,0,0,.8);pointer-events:none;line-height:1}
 .scan-knoepfe{display:flex;gap:.7em;flex-wrap:wrap;margin-top:1em}
 
 /* ---------- Kalender ---------- */
@@ -416,7 +419,8 @@ async function ladeGrunddaten(){
 
 const TABS_VERWALTER = [['start','Start'],['antraege','Anträge'],['kalender','Kalender'],
   ['mitarbeiter','Mitarbeiter'],['auswertung','Auswertung'],['dokument','Dokument'],['feiertage','Feiertage']];
-const TABS_MITARBEITER = [['start','Mein Konto'],['antraege','Urlaub & Krankmeldung']];
+const TABS_MITARBEITER = [['start','Mein Konto'],['antraege','Urlaub'],
+  ['krankmeldung','Krankmeldung'],['einreichen','Dokument einreichen']];
 
 function tabsAufbauen(){
   const tabs = istVerwalter ? TABS_VERWALTER : TABS_MITARBEITER;
@@ -430,7 +434,8 @@ function tabWechseln(name){
   $('tabs').querySelectorAll('button').forEach(b => b.classList.toggle('tab-aktiv', b.dataset.tab===name));
   $('inhalt').innerHTML = '<p class="leer">Lade …</p>';
   ({ start:renderStart, antraege:renderAntraege, kalender:renderKalender, mitarbeiter:renderMitarbeiter,
-     auswertung:renderAuswertung, dokument:renderDokument, feiertage:renderFeiertage })[name]?.();
+     auswertung:renderAuswertung, dokument:renderDokument, feiertage:renderFeiertage,
+     krankmeldung:renderKrankmeldung, einreichen:renderEinreichen })[name]?.();
 }
 
 /* ===================== Start ===================== */
@@ -459,10 +464,41 @@ async function renderStart(){
       <div class="karte ${(offene||[]).length?'betont':''}"><div class="wert">${(offene||[]).length}</div><div class="label">Offene Anträge</div></div>
       <div class="karte"><div class="wert">${formatZahl(aktive.reduce((s,m)=>s+Number(m.urlaubskonto||0),0),0)}</div><div class="label">Urlaubstage auf allen Konten</div></div>
     </div>
-    <div class="block"><h2>Heute abwesend</h2>
+    <div class="block">
+      <div class="block-kopf"><h2>Heute abwesend</h2>
+        ${heuteWeg.length ? `<button class="knopf sekundaer klein" id="pdf-heute">Als PDF öffnen</button>` : ''}</div>
       ${heuteWeg.length ? tabelleAbwesend(heuteWeg) : '<p class="leer">Heute ist niemand abwesend.</p>'}</div>
-    <div class="block"><h2>Nächste 7 Tage</h2>
+    <div class="block">
+      <div class="block-kopf"><h2>Nächste 7 Tage</h2>
+        ${bald.length ? `<button class="knopf sekundaer klein" id="pdf-woche">Als PDF öffnen</button>` : ''}</div>
       ${bald.length ? tabelleAbwesend(bald) : '<p class="leer">In den nächsten 7 Tagen ist nichts geplant.</p>'}</div>`;
+
+  $('pdf-heute')?.addEventListener('click', () =>
+    abwesenheitsListePdf('Abwesend am ' + formatDatum(heute), heuteWeg));
+  $('pdf-woche')?.addEventListener('click', () =>
+    abwesenheitsListePdf('Geplante Abwesenheiten ' + formatDatum(heute) + ' bis ' + formatDatum(bisIso), bald));
+}
+
+function abwesenheitsListePdf(titel, liste){
+  druckFenster(titel, `
+  <h1>${esc(titel.toUpperCase())}</h1>
+  <table style="width:100%;border-collapse:collapse;font-size:11pt">
+    <thead><tr style="border-bottom:1.5px solid #000">
+      <th style="text-align:left;padding:.5em .4em">Mitarbeiter</th>
+      <th style="text-align:left;padding:.5em .4em">Abteilung</th>
+      <th style="text-align:left;padding:.5em .4em">Art</th>
+      <th style="text-align:left;padding:.5em .4em">Von</th>
+      <th style="text-align:left;padding:.5em .4em">Bis</th>
+      <th style="text-align:right;padding:.5em .4em">Werktage</th></tr></thead>
+    <tbody>${liste.map(a => `<tr style="border-bottom:1px solid #ccc">
+      <td style="padding:.45em .4em">${esc(a.mitarbeiter ? a.mitarbeiter.vorname+' '+a.mitarbeiter.nachname : '—')}</td>
+      <td style="padding:.45em .4em">${esc(a.mitarbeiter?.abteilung || '—')}</td>
+      <td style="padding:.45em .4em">${esc(a.art)}</td>
+      <td style="padding:.45em .4em">${formatDatum(a.von)}</td>
+      <td style="padding:.45em .4em">${formatDatum(a.bis)}</td>
+      <td style="padding:.45em .4em;text-align:right">${formatZahl(a.werktage)}</td></tr>`).join('')}</tbody>
+  </table>
+  <p class="fuss">Erstellt am ${formatDatum(heuteIso())} aus dem Urlaub Tool der G.A.B GmbH.</p>`);
 }
 
 function tabelleAbwesend(liste){
@@ -521,14 +557,6 @@ async function renderAntraege(){
       <p class="fehler" id="an-fehler"></p>
     </div>
 
-    <div class="block">
-      <h2>Krankmeldung einreichen</h2>
-      <p class="leer">Krankmeldung mit der Kamera abfotografieren. Zeitraum wird automatisch gelesen, das Bild geht mit an die Verwaltung.</p>
-      <div id="scan-bereich" style="margin-top:1.1em"></div>
-      <p class="fehler" id="krank-fehler"></p>
-      <div id="krank-ergebnis"></div>
-    </div>
-
     <div class="block"><h2>Meine Anträge</h2><div id="meine-antraege"></div></div>`;
 
   const rechnen = () => {
@@ -541,8 +569,126 @@ async function renderAntraege(){
   $('an-bis').addEventListener('change', rechnen);
   $('antrag-form').addEventListener('submit', antragAbsenden);
   zeigeUrlaubsgrenze('', 0);
-  scannerBereitstellen();
   await ladeEigeneAntraege();
+}
+
+/* ---------- Krankmeldung (eigener Reiter) ---------- */
+
+async function renderKrankmeldung(){
+  if(!meinKonto){
+    $('inhalt').innerHTML = `<div class="hinweis">Zu deiner Anmeldung gibt es keinen Mitarbeiter-Datensatz.</div>`;
+    return;
+  }
+  $('inhalt').innerHTML = `
+    <div class="block">
+      <h2>Krankmeldung einreichen</h2>
+      <p class="leer">Krankmeldung vor die Kamera halten. Sobald das Blatt ruhig liegt, zählt die App von 3 herunter und nimmt dann selbst auf. Der Zeitraum wird ausgelesen, das Bild geht mit an die Verwaltung.</p>
+      <div id="scan-bereich" style="margin-top:1.1em"></div>
+      <p class="fehler" id="scan-fehler"></p>
+      <div id="krank-ergebnis"></div>
+    </div>
+    <div class="block"><h2>Meine Krankmeldungen</h2><div id="meine-krankmeldungen"></div></div>`;
+  scannerBereitstellen('scan-bereich', belegAuswerten);
+  await ladeEigeneKrankmeldungen();
+}
+
+async function ladeEigeneKrankmeldungen(){
+  const { data } = await sb.from('abwesenheiten').select('*')
+    .eq('mitarbeiter_id', meinKonto.id).eq('art','Krank').order('von', { ascending:false });
+  const ziel = $('meine-krankmeldungen');
+  if(!ziel) return;
+  if(!data?.length){ ziel.innerHTML = '<p class="leer">Noch keine Krankmeldungen.</p>'; return; }
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Von</th><th>Bis</th><th class="rechts">Werktage</th><th>Beleg</th><th>Status</th></tr></thead>
+    <tbody>${data.map(a => `<tr>
+      <td>${formatDatum(a.von)}</td><td>${formatDatum(a.bis)}</td>
+      <td class="rechts">${formatZahl(a.werktage)}</td>
+      <td>${a.beleg_pfad ? 'übermittelt' : '—'}</td>
+      <td><span class="marke status-${esc(a.status)}">${esc(a.status)}</span></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ---------- Dokument einreichen (eigener Reiter) ---------- */
+
+async function renderEinreichen(){
+  if(!meinKonto){
+    $('inhalt').innerHTML = `<div class="hinweis">Zu deiner Anmeldung gibt es keinen Mitarbeiter-Datensatz.</div>`;
+    return;
+  }
+  $('inhalt').innerHTML = `
+    <div class="block">
+      <h2>Dokument einreichen</h2>
+      <p class="leer">Für alles, was nicht Urlaub oder Krankmeldung ist – zum Beispiel eine Meldebestätigung, ein Zeugnis oder ein Behördenschreiben. Erst abfotografieren, dann dazuschreiben, worum es sich handelt.</p>
+      <div id="dok-scan-bereich" style="margin-top:1.1em"></div>
+      <p class="fehler" id="scan-fehler"></p>
+      <div id="dok-ein-ergebnis"></div>
+    </div>
+    <div class="block"><h2>Meine eingereichten Dokumente</h2><div id="meine-dokumente"></div></div>`;
+  scannerBereitstellen('dok-scan-bereich', dokumentBeschriften);
+  await ladeEigeneDokumente();
+}
+
+function dokumentBeschriften(datei){
+  $('dok-ein-ergebnis').innerHTML = `
+    <div class="block" style="margin:1.2em 0 0;background:var(--karte-hoch)">
+      <p class="leer" style="margin-top:0">Aufnahme liegt bereit. Worum handelt es sich?</p>
+      <div class="formular-reihe">
+        <div class="feld" style="min-width:230px"><label>Art des Dokuments *</label>
+          <input id="dein-art" list="dok-vorschlaege" placeholder="z. B. Meldebestätigung" required>
+          <datalist id="dok-vorschlaege">
+            <option>Meldebestätigung</option><option>Arbeitszeugnis</option>
+            <option>Führerschein</option><option>Aufenthaltstitel</option>
+            <option>Behördenschreiben</option><option>Bankverbindung</option>
+            <option>Sonstiges</option>
+          </datalist></div>
+        <div class="feld" style="flex:1;min-width:230px"><label>Bemerkung (optional)</label><input id="dein-bemerkung"></div>
+        <button class="knopf" type="button" id="dein-senden">Einreichen</button>
+      </div>
+      <p class="fehler" id="dein-fehler"></p>
+    </div>`;
+  $('dein-senden').addEventListener('click', () => dokumentEinreichen(datei));
+}
+
+async function dokumentEinreichen(datei){
+  const fehler = $('dein-fehler'); fehler.textContent = '';
+  const art = $('dein-art').value.trim();
+  if(!art){ fehler.textContent = 'Bitte angeben, worum es sich handelt.'; return; }
+  const knopf = $('dein-senden');
+  knopf.disabled = true; knopf.textContent = 'Sende …';
+  try {
+    const endung = (datei.type === 'application/pdf') ? 'pdf' : 'jpg';
+    const pfad = `${meinKonto.id}/${Date.now()}.${endung}`;
+    const { error: ladefehler } = await sb.storage.from('dokumente')
+      .upload(pfad, datei, { contentType: datei.type || 'image/jpeg' });
+    if(ladefehler) throw new Error('Hochladen fehlgeschlagen: ' + ladefehler.message);
+
+    const { error } = await sb.from('dokumente').insert({
+      mitarbeiter_id: meinKonto.id, art, bemerkung: $('dein-bemerkung').value.trim() || null, pfad });
+    if(error) throw new Error(error.message);
+
+    $('dok-ein-ergebnis').innerHTML = `<div class="erfolg">„${esc(art)}" wurde übermittelt.</div>`;
+    scannerBereitstellen('dok-scan-bereich', dokumentBeschriften);
+    await ladeEigeneDokumente();
+  } catch(err){
+    fehler.textContent = err.message;
+    knopf.disabled = false; knopf.textContent = 'Einreichen';
+  }
+}
+
+async function ladeEigeneDokumente(){
+  const { data, error } = await sb.from('dokumente').select('*')
+    .eq('mitarbeiter_id', meinKonto.id).order('erstellt_am', { ascending:false });
+  const ziel = $('meine-dokumente');
+  if(!ziel) return;
+  if(error){ ziel.innerHTML = `<p class="fehler">${esc(error.message)}</p>`; return; }
+  if(!data.length){ ziel.innerHTML = '<p class="leer">Noch nichts eingereicht.</p>'; return; }
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Art</th><th>Bemerkung</th><th>Eingereicht</th><th>Status</th></tr></thead>
+    <tbody>${data.map(d => `<tr>
+      <td>${esc(d.art)}</td><td>${esc(d.bemerkung || '—')}</td>
+      <td>${formatDatum(d.erstellt_am)}</td>
+      <td><span class="marke ${d.erledigt?'status-genehmigt':'status-offen'}">${d.erledigt?'gesehen':'offen'}</span></td>
+    </tr>`).join('')}</tbody></table></div>`;
 }
 
 // Der Anspruch wächst täglich mit. Deshalb zählt der Stand am Ende des
@@ -612,15 +758,21 @@ async function ladeEigeneAntraege(){
 
 let scanStrom = null, scanBlob = null, scanSchleife = null;
 let letzteEcken = null, ruhigSeit = 0, autoAufnahme = true;
+let scanZielId = 'scan-bereich', scanFertig = null, scanZaehlerBis = 0;
+
+const RUHIG_NOETIG = 500;      // so lange muss das Blatt still liegen
+const ZAEHLER_DAUER = 3000;    // danach laeuft dieser Countdown
 
 function scannerStoppen(){
   if(scanSchleife){ cancelAnimationFrame(scanSchleife); scanSchleife = null; }
   if(scanStrom){ scanStrom.getTracks().forEach(t => t.stop()); scanStrom = null; }
-  letzteEcken = null; ruhigSeit = 0;
+  letzteEcken = null; ruhigSeit = 0; scanZaehlerBis = 0;
 }
 
-function scannerBereitstellen(){
-  $('scan-bereich').innerHTML = `
+// zielId: Element, in dem der Scanner lebt. fertig(blob): wird nach der Aufnahme gerufen.
+function scannerBereitstellen(zielId = 'scan-bereich', fertig = belegAuswerten){
+  scanZielId = zielId; scanFertig = fertig;
+  $(zielId).innerHTML = `
     <div class="scan-knoepfe">
       <button class="knopf" type="button" id="scan-start">Kamera öffnen</button>
       <button class="knopf sekundaer" type="button" id="scan-datei-knopf">Bild oder PDF auswählen</button>
@@ -630,7 +782,7 @@ function scannerBereitstellen(){
   $('scan-datei-knopf').addEventListener('click', () => $('scan-datei').click());
   $('scan-datei').addEventListener('change', e => {
     const d = e.target.files[0];
-    if(d){ scanBlob = d; belegAuswerten(d); }
+    if(d){ scanBlob = d; scanFertig(d); }
   });
 }
 
@@ -795,19 +947,21 @@ function entzerren(quelleLeinwand, ecken){
 /* ---------- Kamera ---------- */
 
 async function kameraOeffnen(){
-  const fehler = $('krank-fehler'); fehler.textContent = '';
+  const fehler = $('scan-fehler');
+  if(fehler) fehler.textContent = '';
   try {
     scanStrom = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal:'environment' }, width:{ ideal:1920 }, height:{ ideal:1440 } }
     });
   } catch(err){
-    fehler.textContent = 'Kamera nicht verfügbar (' + err.name + '). Nimm „Bild oder PDF auswählen".';
+    if(fehler) fehler.textContent = 'Kamera nicht verfügbar (' + err.name + '). Nimm „Bild oder PDF auswählen".';
     return;
   }
-  $('scan-bereich').innerHTML = `
+  $(scanZielId).innerHTML = `
     <div class="scanner">
       <video id="scan-video" playsinline muted></video>
       <canvas class="scan-umriss" id="scan-umriss"></canvas>
+      <div class="scan-zaehler" id="scan-zaehler" hidden></div>
       <div class="scan-hinweis" id="scan-hinweis">Blatt vollständig ins Bild halten</div>
     </div>
     <div class="scan-knoepfe">
@@ -820,11 +974,13 @@ async function kameraOeffnen(){
   video.srcObject = scanStrom;
   await video.play().catch(() => {});
 
-  autoAufnahme = true;
+  autoAufnahme = true; scanZaehlerBis = 0;
   $('scan-ausloesen').addEventListener('click', () => bildAufnehmen(letzteEcken));
-  $('scan-abbrechen').addEventListener('click', () => { scannerStoppen(); scannerBereitstellen(); });
+  $('scan-abbrechen').addEventListener('click', () => { scannerStoppen(); scannerBereitstellen(scanZielId, scanFertig); });
   $('scan-auto').addEventListener('click', e => {
     autoAufnahme = !autoAufnahme;
+    scanZaehlerBis = 0;
+    $('scan-zaehler').hidden = true;
     e.target.textContent = 'Automatik: ' + (autoAufnahme ? 'an' : 'aus');
   });
 
@@ -855,8 +1011,11 @@ function sucheBlattLaufend(){
     const uctx = umriss.getContext('2d');
     uctx.clearRect(0,0,umriss.width,umriss.height);
 
+    const zaehlerFeld = $('scan-zaehler');
+
     if(!gefunden){
-      letzteEcken = null; ruhigSeit = 0;
+      letzteEcken = null; ruhigSeit = 0; scanZaehlerBis = 0;
+      if(zaehlerFeld) zaehlerFeld.hidden = true;
       $('scan-hinweis').textContent = 'Blatt vollständig ins Bild halten';
       return;
     }
@@ -868,14 +1027,20 @@ function sucheBlattLaufend(){
     if(letzteEcken){
       const abstand = ecken.reduce((s,p,i) =>
         s + Math.hypot(p[0]-letzteEcken[i][0], p[1]-letzteEcken[i][1]), 0) / 4;
-      if(abstand < video.videoWidth*0.012) ruhigSeit += 120; else ruhigSeit = 0;
+      if(abstand < video.videoWidth*0.012) ruhigSeit += 120;
+      else { ruhigSeit = 0; scanZaehlerBis = 0; if(zaehlerFeld) zaehlerFeld.hidden = true; }
     }
     letzteEcken = ecken;
 
-    const bereit = ruhigSeit >= 700;
+    const ruhig = ruhigSeit >= RUHIG_NOETIG;
+
+    // Erst wenn das Blatt ruhig liegt, startet der Countdown.
+    if(ruhig && autoAufnahme && !scanZaehlerBis) scanZaehlerBis = zeit + ZAEHLER_DAUER;
+    const restMs = scanZaehlerBis ? Math.max(0, scanZaehlerBis - zeit) : null;
+
     uctx.lineWidth = Math.max(3, video.videoWidth/220);
-    uctx.strokeStyle = bereit ? '#48c25e' : '#F68712';
-    uctx.fillStyle = bereit ? 'rgba(72,194,94,.18)' : 'rgba(246,135,18,.14)';
+    uctx.strokeStyle = ruhig ? '#48c25e' : '#F68712';
+    uctx.fillStyle = ruhig ? 'rgba(72,194,94,.18)' : 'rgba(246,135,18,.14)';
     uctx.beginPath();
     uctx.moveTo(ecken[0][0], ecken[0][1]);
     for(let i=1;i<4;i++) uctx.lineTo(ecken[i][0], ecken[i][1]);
@@ -885,11 +1050,18 @@ function sucheBlattLaufend(){
       uctx.fillStyle = uctx.strokeStyle; uctx.fill();
     });
 
-    $('scan-hinweis').textContent = bereit
-      ? (autoAufnahme ? 'Blatt erkannt – wird aufgenommen …' : 'Blatt erkannt – jetzt aufnehmen')
-      : 'Blatt erkannt – ruhig halten';
+    if(zaehlerFeld){
+      if(restMs !== null){
+        zaehlerFeld.hidden = false;
+        zaehlerFeld.textContent = Math.ceil(restMs/1000) || 1;
+      } else zaehlerFeld.hidden = true;
+    }
 
-    if(bereit && autoAufnahme){ bildAufnehmen(ecken); }
+    $('scan-hinweis').textContent = !ruhig ? 'Blatt erkannt – ruhig halten'
+      : autoAufnahme ? 'Ruhig halten, Aufnahme in ' + (Math.ceil((restMs ?? 0)/1000) || 1) + ' …'
+      : 'Blatt erkannt – jetzt aufnehmen';
+
+    if(restMs === 0){ scanZaehlerBis = 0; bildAufnehmen(ecken); }
   };
   scanSchleife = requestAnimationFrame(schritt);
 }
@@ -914,7 +1086,7 @@ async function bildAufnehmen(ecken){
   scanBlob = await new Promise(r => ergebnis.toBlob(r, 'image/jpeg', 0.92));
   scannerStoppen();
 
-  $('scan-bereich').innerHTML = `
+  $(scanZielId).innerHTML = `
     <div class="scanner"><img id="scan-vorschau" src="${URL.createObjectURL(scanBlob)}" alt="Aufnahme"></div>
     <p class="leer" style="margin:.7em 0 0">${zugeschnitten
       ? 'Blatt erkannt, gerade gerückt und zugeschnitten.'
@@ -924,12 +1096,13 @@ async function bildAufnehmen(ecken){
       <button class="knopf sekundaer" type="button" id="scan-nochmal">Nochmal aufnehmen</button>
     </div>`;
   $('scan-nochmal').addEventListener('click', kameraOeffnen);
-  $('scan-verwenden').addEventListener('click', () => belegAuswerten(scanBlob));
+  $('scan-verwenden').addEventListener('click', () => scanFertig(scanBlob));
 }
 
 async function belegAuswerten(datei){
-  const fehler = $('krank-fehler');
-  fehler.textContent = ''; $('krank-ergebnis').innerHTML = '';
+  const fehler = $('scan-fehler');
+  if(fehler) fehler.textContent = '';
+  $('krank-ergebnis').innerHTML = '';
   const knopf = $('scan-verwenden') || $('scan-datei-knopf');
   if(knopf){ knopf.disabled = true; knopf.textContent = 'Lese Zeitraum …'; }
   try {
@@ -957,7 +1130,7 @@ async function belegAuswerten(datei){
     $('krank-bis').addEventListener('change', rechnen);
     $('krank-senden').addEventListener('click', () => krankmeldungSenden(datei));
   } catch(err){
-    fehler.textContent = 'Auswerten fehlgeschlagen: ' + err.message;
+    if(fehler) fehler.textContent = 'Auswerten fehlgeschlagen: ' + err.message;
   } finally {
     if(knopf){ knopf.disabled = false; knopf.textContent = knopf.id==='scan-verwenden' ? 'Diese Aufnahme verwenden' : 'Bild oder PDF auswählen'; }
   }
@@ -984,8 +1157,8 @@ async function krankmeldungSenden(datei){
 
     $('krank-ergebnis').innerHTML = `<div class="erfolg">Krankmeldung samt Aufnahme wurde übermittelt.</div>`;
     scanBlob = null;
-    scannerBereitstellen();
-    await ladeEigeneAntraege();
+    scannerBereitstellen('scan-bereich', belegAuswerten);
+    await ladeEigeneKrankmeldungen();
   } catch(err){
     fehler.textContent = err.message;
     knopf.disabled = false; knopf.textContent = 'Krankmeldung senden';
@@ -1138,43 +1311,95 @@ function naechsterWerktag(isoStart, richtung){
   return '';
 }
 
+function briefkopf(){
+  return `<div class="briefkopf">
+    <div class="logo"></div>
+    <div class="anschrift">
+      <strong>A-2353 Guntramsdorf, Mühlgasse 1 Obj 51-52</strong><br>
+      Tel.: +43 (0) 2236 50 60 65 &nbsp;·&nbsp; Fax: +43 (0) 2236 50 60 70<br>
+      Mobil: +43 (0) 676 841099105<br>
+      office@global-produktion.com &nbsp;·&nbsp; www.global-produktion.com
+    </div>
+  </div>`;
+}
+
+function druckStil(){
+  const logoRegel = [...document.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch { return []; } })
+    .find(r => r.selectorText === '.logo');
+  return `
+  @page{ size:A4; margin:16mm 18mm; }
+  body{ font-family:Arial,Helvetica,sans-serif; font-size:11.5pt; color:#000; margin:0 }
+  .briefkopf{ display:flex; justify-content:space-between; align-items:flex-start;
+    gap:2em; padding-bottom:1.1em; border-bottom:1.5px solid #F68712; margin-bottom:2.2em }
+  .logo{ ${logoRegel ? logoRegel.style.cssText : ''} width:200px; height:36px }
+  .anschrift{ font-size:8pt; color:#444; line-height:1.5; text-align:right; padding-top:.3em; white-space:nowrap }
+  h1{ font-size:15pt; letter-spacing:.05em; margin:0 0 1.5em }
+  .zeile{ margin-bottom:1.05em; line-height:1.85; white-space:nowrap }
+  .wert{ border-bottom:1px solid #000; padding:0 .5em; display:inline-block; min-width:6.5em }
+  .wert.lang{ min-width:11em }
+  .unterschriften{ display:flex; justify-content:space-between; gap:3em; margin-top:4.5em }
+  .unterschriften div{ flex:1; border-top:1px solid #000; padding-top:.55em; font-size:9.5pt; line-height:1.55 }
+  .unterschriften .titel{ font-weight:bold; font-size:10.5pt }
+  .fuss{ margin-top:2.5em; font-size:8pt; color:#666; line-height:1.5 }
+  @media print{ .drucken{ display:none } }
+  .drucken{ margin-top:2.5em; padding:.7em 1.4em; font-size:12pt; cursor:pointer }`;
+}
+
+function druckFenster(titel, inhalt){
+  const fenster = window.open('', '_blank');
+  if(!fenster){ alert('Das Fenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben.'); return null; }
+  fenster.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8">
+<title>${titel}</title><style>${druckStil()}</style></head><body>
+${briefkopf()}
+${inhalt}
+<button class="drucken" onclick="window.print()">Drucken oder als PDF sichern</button>
+</body></html>`);
+  fenster.document.close();
+  return fenster;
+}
+
 function urlaubsbestaetigung(id){
   const a = antragsDaten.find(x => x.id === id);
   if(!a) return;
   const m = personenNachId.get(a.mitarbeiter_id);
   const name = m ? m.vollername : (a.mitarbeiter ? a.mitarbeiter.vorname+' '+a.mitarbeiter.nachname : '');
   const abteilung = m?.abteilung || a.mitarbeiter?.abteilung || '';
+  const dienstnummer = m?.dienstnummer || '';
   const letzterArbeitstag = naechsterWerktag(a.von, -1);
   const ersterArbeitstag = naechsterWerktag(a.bis, +1);
 
-  const fenster = window.open('', '_blank');
-  if(!fenster){ alert('Das Fenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben.'); return; }
-  fenster.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8">
-<title>Urlaubsbestätigung ${esc(name)}</title>
-<style>
-  @page{ size:A4; margin:22mm 20mm; }
-  body{ font-family:Arial,Helvetica,sans-serif; font-size:13pt; color:#000; line-height:2.1; margin:0 }
-  .kopf{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2.2em }
-  h1{ font-size:17pt; letter-spacing:.06em; margin:0 }
-  .firma{ font-size:10pt; color:#444; line-height:1.4; text-align:right }
-  .wert{ border-bottom:1px solid #000; padding:0 .5em; display:inline-block; min-width:9em }
-  .wert.lang{ min-width:15em }
-  .zeile{ margin-bottom:.5em }
-  .unterschriften{ display:flex; justify-content:space-between; margin-top:5em; font-size:11pt }
-  .unterschriften div{ width:45%; border-top:1px solid #000; padding-top:.5em; text-align:center }
-  @media print{ .drucken{ display:none } }
-  .drucken{ margin-top:3em; padding:.7em 1.4em; font-size:12pt; cursor:pointer }
-</style></head><body>
-  <div class="kopf">
-    <h1>URLAUBSBESTÄTIGUNG</h1>
-    <div class="firma">G.A.B GmbH<br>Datum: ${formatDatum(heuteIso())}</div>
-  </div>
+  // Unterschriftsfelder werden aus den protokollierten Daten gefuellt.
+  const genehmiger = a.bearbeitet_von ? personenNachId.get(a.bearbeitet_von) : null;
+  const zeitstempel = iso => {
+    if(!iso) return '';
+    const d = new Date(iso);
+    return `${formatDatum(d.toISOString().slice(0,10))}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} Uhr`;
+  };
+
+  const arbeitnehmer = a.status === 'offen'
+    ? 'Antrag gestellt am ' + zeitstempel(a.erstellt_am)
+    : 'Elektronisch beantragt<br>' + esc(name) + (dienstnummer ? ', Dienstnummer ' + esc(dienstnummer) : '')
+      + '<br>' + zeitstempel(a.erstellt_am);
+
+  const arbeitgeber = a.status === 'genehmigt' && genehmiger
+    ? 'Elektronisch genehmigt<br>' + esc(genehmiger.vollername)
+      + (genehmiger.dienstnummer ? ', Dienstnummer ' + esc(genehmiger.dienstnummer) : '')
+      + '<br>' + zeitstempel(a.bearbeitet_am)
+    : a.status === 'genehmigt' ? 'Elektronisch genehmigt am ' + zeitstempel(a.bearbeitet_am)
+    : '<em>noch nicht genehmigt</em>';
+
+  druckFenster('Urlaubsbestätigung ' + name, `
+  <h1>URLAUBSBESTÄTIGUNG</h1>
+
+  <div class="zeile" style="text-align:right">Datum: <span class="wert">${formatDatum(heuteIso())}</span></div>
 
   <div class="zeile">NAME: <span class="wert lang">${esc(name)}</span>
-    &nbsp;&nbsp;&nbsp; Abteilung: <span class="wert">${esc(abteilung)}</span></div>
+    &nbsp;&nbsp; Abteilung: <span class="wert">${esc(abteilung)}</span></div>
 
   <div class="zeile">URLAUB für den Zeitraum von <span class="wert">${formatDatum(a.von)}</span>
     bis <span class="wert">${formatDatum(a.bis)}</span></div>
+
+  <div class="zeile">Alternative: <span class="wert" style="min-width:19em">${esc(a.kommentar || '')}</span></div>
 
   <div class="zeile">Gesamt Werktage: <span class="wert">${formatZahl(a.werktage)}</span></div>
 
@@ -1183,13 +1408,13 @@ function urlaubsbestaetigung(id){
   <div class="zeile">Erster Arbeitstag: <span class="wert">${formatDatum(ersterArbeitstag)}</span></div>
 
   <div class="unterschriften">
-    <div>Unterschrift Arbeitgeber</div>
-    <div>Unterschrift Arbeitnehmer</div>
+    <div><span class="titel">Arbeitgeber</span><br>${arbeitgeber}</div>
+    <div><span class="titel">Arbeitnehmer</span><br>${arbeitnehmer}</div>
   </div>
 
-  <button class="drucken" onclick="window.print()">Drucken oder als PDF sichern</button>
-</body></html>`);
-  fenster.document.close();
+  <p class="fuss">Diese Bestätigung wurde elektronisch im Urlaub Tool der G.A.B GmbH erstellt.
+  Antrag und Genehmigung sind dort mit Konto, Datum und Uhrzeit protokolliert.
+  Eine Urlaubsvereinbarung nach § 4 Urlaubsgesetz bedarf keiner Schriftform.</p>`);
 }
 
 async function entscheiden(id, status){
@@ -1333,21 +1558,29 @@ async function zeichneJahr(){
 
 /* ===================== Mitarbeiter ===================== */
 
-let maNurAktive = true, importZeilen = [];
+let maNurAktive = true, importZeilen = [], maSuche = '', maFormularOffen = false;
 
 async function renderMitarbeiter(){
   $('inhalt').innerHTML = `
     <div class="block">
       <div class="block-kopf"><h2>Mitarbeiterliste</h2>
-        <div class="umschalter">
-          <button data-f="aktiv" class="${maNurAktive?'aktiv':''}">Aktive</button>
-          <button data-f="alle" class="${!maNurAktive?'aktiv':''}">Alle</button>
+        <div style="display:flex;gap:.7em;align-items:center;flex-wrap:wrap">
+          <input id="ma-suche" type="search" placeholder="Suchen: Name, Nummer, Abteilung …"
+            value="${esc(maSuche)}" style="min-width:230px">
+          <div class="umschalter">
+            <button data-f="aktiv" class="${maNurAktive?'aktiv':''}">Aktive</button>
+            <button data-f="alle" class="${!maNurAktive?'aktiv':''}">Alle</button>
+          </div>
         </div></div>
       <div id="ma-liste"></div>
     </div>
 
-    <div class="block">
-      <h2>Neuen Mitarbeiter anlegen</h2>
+    <details class="block" id="ma-anlegen-block" ${maFormularOffen?'open':''}>
+      <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <h2 style="margin:0">Neuen Mitarbeiter anlegen</h2>
+        <span class="leer" id="ma-auf-zu">${maFormularOffen?'zuklappen':'aufklappen'}</span>
+      </summary>
+      <div style="margin-top:1.3em">
       <form id="ma-form">
         <div class="formular-gitter">
           <div class="feld"><label>Dienstnummer *</label><input id="ma-dienstnummer" inputmode="numeric" required></div>
@@ -1379,7 +1612,8 @@ async function renderMitarbeiter(){
       </form>
       <p class="fehler" id="ma-fehler"></p>
       <div id="ma-erfolg"></div>
-    </div>
+      </div>
+    </details>
 
     <div class="block">
       <h2>Mehrere per Datei importieren</h2>
@@ -1393,7 +1627,20 @@ async function renderMitarbeiter(){
   $('vorlage-link').addEventListener('click', e => { e.preventDefault(); vorlageHerunterladen(); });
   $('inhalt').querySelectorAll('.umschalter button').forEach(b =>
     b.addEventListener('click', () => { maNurAktive = b.dataset.f==='aktiv'; renderMitarbeiter(); }));
+  $('ma-anlegen-block').addEventListener('toggle', e => {
+    maFormularOffen = e.target.open;
+    $('ma-auf-zu').textContent = maFormularOffen ? 'zuklappen' : 'aufklappen';
+  });
+  $('ma-suche').addEventListener('input', e => { maSuche = e.target.value; ladeMitarbeiterListe(); });
   await ladeMitarbeiterListe();
+}
+
+// Sucht quer über alle angegebenen Felder, Gross- und Kleinschreibung egal.
+function passtZurSuche(objekt, suche, felder){
+  const text = suche.trim().toLowerCase();
+  if(!text) return true;
+  return text.split(/\s+/).every(teil =>
+    felder.some(f => String(objekt[f] ?? '').toLowerCase().includes(teil)));
 }
 
 async function mitarbeiterAnlegen(e){
@@ -1423,7 +1670,10 @@ async function ladeMitarbeiterListe(){
   const { data, error } = await sb.from('mitarbeiter_uebersicht').select('*').order('vollername');
   const ziel = $('ma-liste');
   if(error){ ziel.innerHTML = `<p class="fehler">${esc(error.message)}</p>`; return; }
-  const liste = (data||[]).filter(m => maNurAktive ? !m.austrittsdatum : true);
+  const liste = (data||[])
+    .filter(m => maNurAktive ? !m.austrittsdatum : true)
+    .filter(m => passtZurSuche(m, maSuche,
+      ['vollername','dienstnummer','abteilung','taetigkeit','beschaeftigung','rolle','telefon']));
   if(!liste.length){ ziel.innerHTML = '<p class="leer">Keine Mitarbeiter.</p>'; return; }
   ziel.innerHTML = `<div class="tabelle-wrapper"><table>
     <thead><tr><th>Nr.</th><th>Name</th><th>Abteilung</th><th>Tätigkeit</th><th>Eintritt</th>
@@ -1590,14 +1840,21 @@ async function importStarten(){
 
 /* ===================== Auswertung ===================== */
 
+let ausSuche = '', ausAbteilung = '', ausJahr = new Date().getFullYear();
+
 async function renderAuswertung(){
-  const jahr = new Date().getFullYear();
   const [{ data: leute }, { data: abw }] = await Promise.all([
     sb.from('mitarbeiter_uebersicht').select('*').order('vollername'),
     sb.from('abwesenheiten').select('mitarbeiter_id,art,von,werktage,status').eq('status','genehmigt')
   ]);
-  const aktive = (leute||[]).filter(m => !m.austrittsdatum);
+  const jahr = ausJahr;
   const nachId = new Map((leute||[]).map(m => [m.id, m]));
+  const aktive = (leute||[])
+    .filter(m => !m.austrittsdatum)
+    .filter(m => !ausAbteilung || m.abteilung === ausAbteilung)
+    .filter(m => passtZurSuche(m, ausSuche, ['vollername','dienstnummer','abteilung','taetigkeit']));
+  const jahre = [...new Set((abw||[]).map(a => +a.von.slice(0,4)))].sort((a,b)=>b-a);
+  if(!jahre.includes(ausJahr)) jahre.unshift(ausJahr);
 
   const proAbteilung = new Map();
   aktive.forEach(m => {
@@ -1614,10 +1871,26 @@ async function renderAuswertung(){
     if(a.von.slice(0,4) === String(jahr)){ e.tageJahr += +a.werktage||0; e.faelleJahr++; }
     krank.set(a.mitarbeiter_id, e);
   });
+  const sichtbar = new Set(aktive.map(m => m.id));
   const krankListe = [...krank.entries()].map(([id,e]) => ({ person:nachId.get(id), ...e }))
-    .filter(x => x.person).sort((a,b) => b.tage - a.tage);
+    .filter(x => x.person && sichtbar.has(x.person.id)).sort((a,b) => b.tage - a.tage);
 
   $('inhalt').innerHTML = `
+    <div class="block">
+      <div class="block-kopf"><h2>Filter</h2></div>
+      <div class="formular-reihe" style="margin:0">
+        <div class="feld" style="flex:1;min-width:230px"><label>Suche</label>
+          <input id="aus-suche" type="search" value="${esc(ausSuche)}" placeholder="Name, Nummer, Tätigkeit …"></div>
+        <div class="feld"><label>Abteilung</label>
+          <select id="aus-abteilung"><option value="">Alle</option>
+            ${abteilungen.map(a => `<option ${a===ausAbteilung?'selected':''}>${esc(a)}</option>`).join('')}</select></div>
+        <div class="feld"><label>Jahr für Krankenstand</label>
+          <select id="aus-jahr">${jahre.map(j => `<option ${j===ausJahr?'selected':''}>${j}</option>`).join('')}</select></div>
+        <button class="knopf sekundaer" type="button" id="aus-zuruecksetzen">Zurücksetzen</button>
+      </div>
+      <p class="leer" style="margin:.9em 0 0">${aktive.length} von ${(leute||[]).filter(m=>!m.austrittsdatum).length} aktiven Mitarbeitern werden ausgewertet.</p>
+    </div>
+
     <div class="block"><h2>Nach Abteilung</h2>
       <div class="tabelle-wrapper"><table>
         <thead><tr><th>Abteilung</th><th class="rechts">Mitarbeiter</th><th class="rechts">Anspruch</th>
@@ -1649,6 +1922,15 @@ async function renderAuswertung(){
           <td class="rechts">${formatZahl(m.kontokorrektur)}</td>
           <td class="rechts" style="color:var(--orange);font-weight:600">${formatZahl(m.urlaubskonto)}</td></tr>`).join('')}</tbody>
       </table></div></div>`;
+
+  $('aus-suche').addEventListener('input', e => { ausSuche = e.target.value; renderAuswertung(); });
+  $('aus-abteilung').addEventListener('change', e => { ausAbteilung = e.target.value; renderAuswertung(); });
+  $('aus-jahr').addEventListener('change', e => { ausJahr = +e.target.value; renderAuswertung(); });
+  $('aus-zuruecksetzen').addEventListener('click', () => {
+    ausSuche = ''; ausAbteilung = ''; ausJahr = new Date().getFullYear(); renderAuswertung();
+  });
+  // Nach dem Neuzeichnen die Schreibmarke zurueck ins Suchfeld setzen
+  if(ausSuche){ const f = $('aus-suche'); f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
 }
 
 /* ===================== Dokument ===================== */
@@ -1685,7 +1967,19 @@ async function renderDokument(){
       </div>
       <p class="fehler" id="dok-fehler"></p>
       <div id="dok-ergebnis"></div>
+    </div>
+
+    <div class="block">
+      <div class="block-kopf"><h2>Von Mitarbeitern eingereicht</h2>
+        <div class="umschalter">
+          <button data-d="offen" class="${dokFilter==='offen'?'aktiv':''}">Offen</button>
+          <button data-d="alle" class="${dokFilter==='alle'?'aktiv':''}">Alle</button>
+        </div></div>
+      <div id="eingereichte-liste"></div>
     </div>`;
+  $('inhalt').querySelectorAll('[data-d]').forEach(b =>
+    b.addEventListener('click', () => { dokFilter = b.dataset.d; renderDokument(); }));
+  ladeEingereichteDokumente();
   const upload = $('dok-upload');
   const eingabe = $('dok-datei');
   upload.addEventListener('click', e => {
@@ -1709,6 +2003,42 @@ async function renderDokument(){
     e.stopPropagation(); dokumentDateiSetzen(null);
   });
   $('dok-lesen').addEventListener('click', dokumentLesen);
+}
+
+let dokFilter = 'offen';
+
+async function ladeEingereichteDokumente(){
+  let q = sb.from('dokumente')
+    .select('*, mitarbeiter(vorname,nachname,abteilung)')
+    .order('erstellt_am', { ascending:false });
+  if(dokFilter === 'offen') q = q.eq('erledigt', false);
+  const { data, error } = await q;
+  const ziel = $('eingereichte-liste');
+  if(!ziel) return;
+  if(error){ ziel.innerHTML = `<p class="fehler">${esc(error.message)}</p>`; return; }
+  if(!data.length){ ziel.innerHTML = '<p class="leer">Nichts eingereicht.</p>'; return; }
+  ziel.innerHTML = `<div class="tabelle-wrapper"><table>
+    <thead><tr><th>Mitarbeiter</th><th>Abteilung</th><th>Art</th><th>Bemerkung</th>
+      <th>Eingereicht</th><th>Beleg</th><th>Status</th><th></th></tr></thead>
+    <tbody>${data.map(d => `<tr>
+      <td>${esc(d.mitarbeiter ? d.mitarbeiter.vorname+' '+d.mitarbeiter.nachname : '—')}</td>
+      <td>${esc(d.mitarbeiter?.abteilung || '—')}</td>
+      <td>${esc(d.art)}</td><td>${esc(d.bemerkung || '—')}</td>
+      <td>${formatDatum(d.erstellt_am)}</td>
+      <td><button class="knopf sekundaer klein" data-dokbeleg="${esc(d.pfad)}">Ansehen</button></td>
+      <td><span class="marke ${d.erledigt?'status-genehmigt':'status-offen'}">${d.erledigt?'gesehen':'offen'}</span></td>
+      <td>${d.erledigt ? '' : `<button class="knopf klein" data-dokerledigt="${d.id}">Als gesehen markieren</button>`}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+
+  ziel.querySelectorAll('[data-dokbeleg]').forEach(b => b.addEventListener('click', async () => {
+    const { data: link, error } = await sb.storage.from('dokumente').createSignedUrl(b.dataset.dokbeleg, 120);
+    if(error || !link){ alert('Beleg konnte nicht geöffnet werden: ' + (error?.message || 'unbekannt')); return; }
+    window.open(link.signedUrl, '_blank');
+  }));
+  ziel.querySelectorAll('[data-dokerledigt]').forEach(b => b.addEventListener('click', async () => {
+    await sb.from('dokumente').update({ erledigt:true }).eq('id', b.dataset.dokerledigt);
+    await ladeEingereichteDokumente();
+  }));
 }
 
 function dokumentDateiSetzen(datei){
