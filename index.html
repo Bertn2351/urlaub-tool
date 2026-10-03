@@ -1099,41 +1099,34 @@ async function bildAufnehmen(ecken){
   $('scan-verwenden').addEventListener('click', () => scanFertig(scanBlob));
 }
 
-async function belegAuswerten(datei){
+// Krankmeldung bewusst ohne Erkennung: der Zeitraum wird selbst eingetippt,
+// die Aufnahme dient nur als Nachweis.
+function belegAuswerten(datei){
   const fehler = $('scan-fehler');
   if(fehler) fehler.textContent = '';
-  $('krank-ergebnis').innerHTML = '';
-  const knopf = $('scan-verwenden') || $('scan-datei-knopf');
-  if(knopf){ knopf.disabled = true; knopf.textContent = 'Lese Zeitraum …'; }
-  try {
-    const erkannt = await edgeAufruf('hyper-handler', {
-      dateiBase64: await dateiZuBase64(datei), mediaType: datei.type || 'image/jpeg' });
-    const von = erkannt.datum_von || heuteIso();
-    const bis = erkannt.datum_bis || von;
-    $('krank-ergebnis').innerHTML = `
-      <div class="block" style="margin:1.2em 0 0;background:var(--karte-hoch)">
-        <p class="leer" style="margin-top:0">${erkannt.quelle ? esc(erkannt.quelle)+'. ' : ''}Bitte den Zeitraum prüfen.</p>
-        <div class="formular-reihe">
-          <div class="feld"><label>Krank von</label><input id="krank-von" type="date" value="${esc(von)}"></div>
-          <div class="feld"><label>Krank bis</label><input id="krank-bis" type="date" value="${esc(bis)}"></div>
-          <div class="feld"><label>Werktage</label><input id="krank-werktage" readonly style="width:5.5em" class="zahl"></div>
-          <button class="knopf" type="button" id="krank-senden">Krankmeldung senden</button>
-        </div>
-        <p class="fehler" id="krank-send-fehler"></p>
-      </div>`;
-    const rechnen = () => {
-      const v = $('krank-von').value, b = $('krank-bis').value;
-      $('krank-werktage').value = (v && b) ? werktageZaehlen(v,b) : 0;
-    };
+  const heute = heuteIso();
+  $('krank-ergebnis').innerHTML = `
+    <div class="block" style="margin:1.2em 0 0;background:var(--karte-hoch)">
+      <p class="leer" style="margin-top:0">Aufnahme liegt bereit. Bitte den Zeitraum eintragen, der auf der Krankmeldung steht.</p>
+      <div class="formular-reihe">
+        <div class="feld"><label>Krank von *</label><input id="krank-von" type="date" value="${heute}"></div>
+        <div class="feld"><label>Krank bis *</label><input id="krank-bis" type="date" value="${heute}"></div>
+        <div class="feld"><label>Werktage</label><input id="krank-werktage" readonly style="width:5.5em" class="zahl"></div>
+        <button class="knopf" type="button" id="krank-senden">Krankmeldung senden</button>
+      </div>
+      <p class="fehler" id="krank-send-fehler"></p>
+    </div>`;
+  const rechnen = () => {
+    const v = $('krank-von').value, b = $('krank-bis').value;
+    $('krank-werktage').value = (v && b) ? werktageZaehlen(v,b) : 0;
+  };
+  rechnen();
+  $('krank-von').addEventListener('change', () => {
+    if($('krank-bis').value < $('krank-von').value) $('krank-bis').value = $('krank-von').value;
     rechnen();
-    $('krank-von').addEventListener('change', rechnen);
-    $('krank-bis').addEventListener('change', rechnen);
-    $('krank-senden').addEventListener('click', () => krankmeldungSenden(datei));
-  } catch(err){
-    if(fehler) fehler.textContent = 'Auswerten fehlgeschlagen: ' + err.message;
-  } finally {
-    if(knopf){ knopf.disabled = false; knopf.textContent = knopf.id==='scan-verwenden' ? 'Diese Aufnahme verwenden' : 'Bild oder PDF auswählen'; }
-  }
+  });
+  $('krank-bis').addEventListener('change', rechnen);
+  $('krank-senden').addEventListener('click', () => krankmeldungSenden(datei));
 }
 
 async function krankmeldungSenden(datei){
@@ -1976,9 +1969,26 @@ async function renderDokument(){
           <button data-d="alle" class="${dokFilter==='alle'?'aktiv':''}">Alle</button>
         </div></div>
       <div id="eingereichte-liste"></div>
-    </div>`;
+    </div>
+
+    <details class="block">
+      <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <h2 style="margin:0">Gesammelte Lesungen</h2>
+        <span class="leer">aufklappen</span>
+      </summary>
+      <div style="margin-top:1.2em">
+        <p class="leer">Von jedem ausgelesenen Dokument werden Rohtext und erkannte Felder festgehalten. Aus wiederkehrenden Formularen lassen sich daraus feste Leseregeln bauen – dann braucht es für diese Formulare keine KI mehr.</p>
+        <div class="formular-reihe" style="margin-top:1em">
+          <button class="knopf sekundaer" type="button" id="lesungen-laden">Anzeigen</button>
+          <button class="knopf sekundaer" type="button" id="lesungen-export">Alles als Datei sichern</button>
+        </div>
+        <div id="lesungen-liste"></div>
+      </div>
+    </details>`;
   $('inhalt').querySelectorAll('[data-d]').forEach(b =>
     b.addEventListener('click', () => { dokFilter = b.dataset.d; renderDokument(); }));
+  $('lesungen-laden').addEventListener('click', ladeLesungen);
+  $('lesungen-export').addEventListener('click', lesungenExportieren);
   ladeEingereichteDokumente();
   const upload = $('dok-upload');
   const eingabe = $('dok-datei');
@@ -2006,6 +2016,64 @@ async function renderDokument(){
 }
 
 let dokFilter = 'offen';
+
+async function ladeLesungen(){
+  const ziel = $('lesungen-liste');
+  const { data, error } = await sb.from('dokument_lesungen')
+    .select('*').order('erstellt_am', { ascending:false }).limit(200);
+  if(error){ ziel.innerHTML = `<p class="fehler">${esc(error.message)}</p>`; return; }
+  if(!data.length){ ziel.innerHTML = '<p class="leer">Noch nichts gesammelt.</p>'; return; }
+
+  const proArt = new Map();
+  data.forEach(l => {
+    const e = proArt.get(l.art || 'unbekannt') || { anzahl:0, mitKi:0 };
+    e.anzahl++; if((l.quelle||'').includes('KI')) e.mitKi++;
+    proArt.set(l.art || 'unbekannt', e);
+  });
+
+  ziel.innerHTML = `
+    <div class="tabelle-wrapper" style="margin-top:1.3em"><table>
+      <thead><tr><th>Dokumentart</th><th class="rechts">Gelesen</th><th class="rechts">davon mit KI</th><th>Bewertung</th></tr></thead>
+      <tbody>${[...proArt.entries()].sort((a,b)=>b[1].anzahl-a[1].anzahl).map(([art,e]) => `<tr>
+        <td>${esc(art)}</td><td class="rechts">${e.anzahl}</td><td class="rechts">${e.mitKi}</td>
+        <td class="leer">${e.mitKi === 0 ? 'läuft bereits ohne KI'
+          : e.anzahl >= 5 ? 'genug Beispiele für feste Regeln'
+          : 'noch zu wenige Beispiele'}</td></tr>`).join('')}</tbody>
+    </table></div>
+
+    <div class="tabelle-wrapper" style="margin-top:1.3em"><table>
+      <thead><tr><th>Datum</th><th>Datei</th><th>Art</th><th>Quelle</th><th>Rohtext</th><th></th></tr></thead>
+      <tbody>${data.slice(0,50).map(l => `<tr>
+        <td>${formatDatum(l.erstellt_am)}</td>
+        <td>${esc(l.dateiname || '—')}</td>
+        <td>${esc(l.art || '—')}</td>
+        <td class="leer">${esc(l.quelle || '—')}</td>
+        <td class="leer">${l.rohtext ? l.rohtext.length + ' Zeichen' : '—'}</td>
+        <td><button class="knopf sekundaer klein" data-lesung="${l.id}">Ansehen</button></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+
+  ziel.querySelectorAll('[data-lesung]').forEach(b => b.addEventListener('click', () => {
+    const l = data.find(x => x.id === b.dataset.lesung);
+    zeigeModal(`<h2>${esc(l.dateiname || 'Lesung')}</h2>
+      <p class="leer">${esc(l.art || '—')} · ${esc(l.quelle || '—')} · ${formatDatum(l.erstellt_am)}</p>
+      <h3 style="font-size:.9rem;margin-top:1.3em">Erkannte Felder</h3>
+      <pre style="white-space:pre-wrap;font-size:.8rem;background:var(--karte-hoch);padding:1em;border-radius:9px;overflow:auto">${esc(JSON.stringify(l.ergebnis, null, 2))}</pre>
+      <h3 style="font-size:.9rem;margin-top:1.3em">Rohtext</h3>
+      <pre style="white-space:pre-wrap;font-size:.8rem;background:var(--karte-hoch);padding:1em;border-radius:9px;max-height:40vh;overflow:auto">${esc(l.rohtext || 'kein Text gefunden')}</pre>
+      <button class="knopf sekundaer" type="button" style="margin-top:1.2em" onclick="schliesseModal()">Schließen</button>`);
+  }));
+}
+
+async function lesungenExportieren(){
+  const { data, error } = await sb.from('dokument_lesungen').select('*').order('erstellt_am');
+  if(error){ alert('Konnte nicht geladen werden: ' + error.message); return; }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `dokument-lesungen-${heuteIso()}.json`;
+  a.click();
+}
 
 async function ladeEingereichteDokumente(){
   let q = sb.from('dokumente')
@@ -2089,10 +2157,32 @@ async function dokumentLesen(){
   if(!datei){ fehler.textContent = 'Bitte zuerst eine Datei auswählen.'; return; }
   const knopf = $('dok-lesen'); knopf.disabled = true; knopf.textContent = 'Lese …';
   try {
-    dokumentErgebnis(await edgeAufruf('hyper-handler', {
-      dateiBase64: await dateiZuBase64(datei), mediaType: datei.type }));
+    const ergebnis = await edgeAufruf('hyper-handler', {
+      dateiBase64: await dateiZuBase64(datei), mediaType: datei.type });
+    letzteLesungId = await lesungMerken(datei, ergebnis);
+    dokumentErgebnis(ergebnis);
   } catch(err){ fehler.textContent = 'Auslesen fehlgeschlagen: ' + err.message; }
   finally { knopf.disabled = !dokDatei; knopf.textContent = 'Auslesen'; }
+}
+
+let letzteLesungId = null;
+
+// Jede Lesung wird festgehalten: Rohtext und alle erkannten Felder. Damit lassen
+// sich spaeter feste Regeln je Formulartyp schreiben und die KI abschalten.
+async function lesungMerken(datei, ergebnis){
+  const { rohtext, ...felder } = ergebnis;
+  const { data, error } = await sb.from('dokument_lesungen').insert({
+    dateiname: datei.name || null,
+    medientyp: datei.type || null,
+    art: ergebnis.art || null,
+    quelle: ergebnis.quelle || null,
+    sicherheit: ergebnis.sicherheit || null,
+    rohtext: rohtext || null,
+    ergebnis: felder,
+    gelesen_von: meinKonto?.id || null
+  }).select('id').maybeSingle();
+  if(error){ console.warn('Lesung konnte nicht gespeichert werden:', error.message); return null; }
+  return data?.id || null;
 }
 
 function dokumentErgebnis(d){
