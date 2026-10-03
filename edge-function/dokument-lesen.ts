@@ -157,7 +157,14 @@ async function kiLesen(apiKey: string, dateiBase64: string, mediaType: string, r
     '"staatsangehoerigkeit":"","adresse":"","telefon":"","taetigkeit":"",',
     '"beschaeftigung":"Vollzeit|Teilzeit|Geringfuegig|","wochenstunden":"",',
     '"datum_von":"JJJJ-MM-TT","datum_bis":"JJJJ-MM-TT",',
+    '"weitere_felder":{},',
     '"sicherheit":"hoch|mittel|niedrig","hinweis":"kurze Begruendung falls unsicher"}',
+    '',
+    'Wichtig zu "weitere_felder": Trage dort JEDE weitere beschriftete Angabe ein, die du im',
+    'Dokument findest und die oben keinen eigenen Platz hat – als Paare aus Beschriftung und Wert,',
+    'zum Beispiel {"Protokollnr":"19843051","Beitrags-KtoNr":"777527029","Uebersender":"I-TAX"}.',
+    'Lass nichts Beschriftetes aus. Diese Angaben werden gesammelt, um das Dokument spaeter',
+    'ohne KI auslesen zu koennen.',
   ].filter(Boolean).join('\n');
 
   const antwort = await client.messages.create({
@@ -204,12 +211,17 @@ Deno.serve(async (req) => {
       } catch { /* dann eben ohne Rohtext weiter */ }
     }
 
+    // Der Rohtext wird immer mitgeschickt: aus ihm lassen sich spaeter feste
+    // Leseregeln je Formulartyp ableiten, damit die KI entfallen kann.
+    const rohtext = zeilen.join('\n').slice(0, 8000);
+
     const direkt = zeilen.length ? oegkLesen(zeilen) : null;
-    if (direkt) return json(direkt);
+    if (direkt) return json({ ...direkt, rohtext });
 
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!apiKey) return json({ error: 'ANTHROPIC_API_KEY fehlt als Secret' }, 500);
-    return json(await kiLesen(apiKey, dateiBase64, mediaType, zeilen.join('\n')));
+    const ergebnis = await kiLesen(apiKey, dateiBase64, mediaType, rohtext);
+    return json({ ...ergebnis, rohtext });
   } catch (e) {
     return json({ error: String(e) }, 500);
   }
