@@ -153,12 +153,11 @@ legend{font-size:.72rem;font-weight:700;color:var(--orange);text-transform:upper
 
 /* ---------- Scanner ---------- */
 .scanner{position:relative;background:#000;border-radius:var(--radius);overflow:hidden;
-  aspect-ratio:4/3;max-width:560px;border:1px solid var(--rand)}
-.scanner video,.scanner img{width:100%;height:100%;object-fit:cover;display:block}
-.scan-rahmen{position:absolute;inset:7% 5%;border:2px dashed rgba(246,135,18,.75);border-radius:8px;
-  pointer-events:none;box-shadow:0 0 0 2000px rgba(0,0,0,.35)}
-.scan-hinweis{position:absolute;left:0;right:0;bottom:.7em;text-align:center;
-  font-size:.82rem;color:#fff;text-shadow:0 1px 4px #000}
+  max-width:560px;border:1px solid var(--rand);line-height:0}
+.scanner video,.scanner img{width:100%;height:auto;display:block}
+.scan-umriss{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.scan-hinweis{position:absolute;left:0;right:0;bottom:0;padding:.6em;text-align:center;
+  font-size:.84rem;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.7));line-height:1.4}
 .scan-knoepfe{display:flex;gap:.7em;flex-wrap:wrap;margin-top:1em}
 
 /* ---------- Kalender ---------- */
@@ -611,10 +610,13 @@ async function ladeEigeneAntraege(){
 
 /* ===================== Scanner ===================== */
 
-let scanStrom = null, scanBlob = null;
+let scanStrom = null, scanBlob = null, scanSchleife = null;
+let letzteEcken = null, ruhigSeit = 0, autoAufnahme = true;
 
 function scannerStoppen(){
+  if(scanSchleife){ cancelAnimationFrame(scanSchleife); scanSchleife = null; }
   if(scanStrom){ scanStrom.getTracks().forEach(t => t.stop()); scanStrom = null; }
+  letzteEcken = null; ruhigSeit = 0;
 }
 
 function scannerBereitstellen(){
@@ -632,6 +634,166 @@ function scannerBereitstellen(){
   });
 }
 
+/* ---------- Blatt im Bild finden ----------
+   Papier ist heller als die Unterlage. Das Bild wird klein gerechnet,
+   mit der Otsu-Schwelle in hell/dunkel geteilt, die groesste zusammenhaengende
+   helle Flaeche gesucht und daraus die vier Eckpunkte bestimmt.           */
+
+function otsuSchwelle(hist, gesamt){
+  let summe = 0;
+  for(let i=0;i<256;i++) summe += i*hist[i];
+  let summeB = 0, gewichtB = 0, bestWert = -1, beste = 128;
+  for(let i=0;i<256;i++){
+    gewichtB += hist[i];
+    if(!gewichtB) continue;
+    const gewichtV = gesamt - gewichtB;
+    if(!gewichtV) break;
+    summeB += i*hist[i];
+    const mittelB = summeB/gewichtB, mittelV = (summe-summeB)/gewichtV;
+    const wert = gewichtB*gewichtV*(mittelB-mittelV)**2;
+    if(wert > bestWert){ bestWert = wert; beste = i; }
+  }
+  return beste;
+}
+
+function blattEcken(daten, breite, hoehe){
+  const anzahl = breite*hoehe;
+  const grau = new Uint8Array(anzahl);
+  const hist = new Uint32Array(256);
+  for(let i=0,p=0;i<anzahl;i++,p+=4){
+    const g = (daten[p]*0.299 + daten[p+1]*0.587 + daten[p+2]*0.114) | 0;
+    grau[i] = g; hist[g]++;
+  }
+  const schwelle = otsuSchwelle(hist, anzahl);
+
+  // groesste helle Flaeche suchen (Flutfuellung ueber einen Stapel)
+  const besucht = new Uint8Array(anzahl);
+  const stapel = new Int32Array(anzahl);
+  let besteGroesse = 0, besteFlaeche = null;
+
+  for(let start=0; start<anzahl; start++){
+    if(besucht[start] || grau[start] <= schwelle) continue;
+    let oben = 0, groesse = 0;
+    const flaeche = [];
+    stapel[oben++] = start; besucht[start] = 1;
+    while(oben > 0){
+      const i = stapel[--oben];
+      flaeche.push(i); groesse++;
+      const x = i % breite, y = (i/breite)|0;
+      if(x > 0        && !besucht[i-1]      && grau[i-1]      > schwelle){ besucht[i-1]=1;      stapel[oben++]=i-1; }
+      if(x < breite-1 && !besucht[i+1]      && grau[i+1]      > schwelle){ besucht[i+1]=1;      stapel[oben++]=i+1; }
+      if(y > 0        && !besucht[i-breite] && grau[i-breite] > schwelle){ besucht[i-breite]=1; stapel[oben++]=i-breite; }
+      if(y < hoehe-1  && !besucht[i+breite] && grau[i+breite] > schwelle){ besucht[i+breite]=1; stapel[oben++]=i+breite; }
+    }
+    if(groesse > besteGroesse){ besteGroesse = groesse; besteFlaeche = flaeche; }
+  }
+
+  // Zu kleine oder fast bildfuellende Flaechen sind kein Blatt
+  const anteil = besteGroesse/anzahl;
+  if(!besteFlaeche || anteil < 0.10 || anteil > 0.97) return null;
+
+  let lo=null, ru=null, ro=null, lu=null;
+  let minSum=Infinity, maxSum=-Infinity, minDif=Infinity, maxDif=-Infinity;
+  for(const i of besteFlaeche){
+    const x = i % breite, y = (i/breite)|0;
+    const summe = x+y, differenz = x-y;
+    if(summe < minSum){ minSum = summe; lo = [x,y]; }
+    if(summe > maxSum){ maxSum = summe; ru = [x,y]; }
+    if(differenz > maxDif){ maxDif = differenz; ro = [x,y]; }
+    if(differenz < minDif){ minDif = differenz; lu = [x,y]; }
+  }
+
+  // Grobe Plausibilitaet: alle Seiten muessen eine Mindestlaenge haben
+  const laenge = (a,b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
+  const kleinste = Math.min(laenge(lo,ro), laenge(ro,ru), laenge(ru,lu), laenge(lu,lo));
+  if(kleinste < Math.min(breite,hoehe)*0.18) return null;
+
+  return [lo, ro, ru, lu];
+}
+
+/* ---------- Perspektive begradigen ---------- */
+
+function loeseGleichungen(A, b){
+  const n = b.length;
+  for(let s=0; s<n; s++){
+    let groesste = s;
+    for(let z=s+1; z<n; z++) if(Math.abs(A[z][s]) > Math.abs(A[groesste][s])) groesste = z;
+    [A[s], A[groesste]] = [A[groesste], A[s]];
+    [b[s], b[groesste]] = [b[groesste], b[s]];
+    if(Math.abs(A[s][s]) < 1e-10) return null;
+    for(let z=s+1; z<n; z++){
+      const f = A[z][s]/A[s][s];
+      for(let k=s; k<n; k++) A[z][k] -= f*A[s][k];
+      b[z] -= f*b[s];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for(let z=n-1; z>=0; z--){
+    let summe = b[z];
+    for(let k=z+1; k<n; k++) summe -= A[z][k]*x[k];
+    x[z] = summe/A[z][z];
+  }
+  return x;
+}
+
+// Abbildung vom Zielrechteck auf das Viereck im Bild
+function abbildung(ecken, breite, hoehe){
+  const ziel = [[0,0],[breite,0],[breite,hoehe],[0,hoehe]];
+  const A = [], b = [];
+  for(let i=0;i<4;i++){
+    const [u,v] = ziel[i], [x,y] = ecken[i];
+    A.push([u,v,1,0,0,0,-u*x,-v*x]); b.push(x);
+    A.push([0,0,0,u,v,1,-u*y,-v*y]); b.push(y);
+  }
+  return loeseGleichungen(A, b);
+}
+
+function entzerren(quelleLeinwand, ecken){
+  const laenge = (a,b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
+  let breite = Math.round(Math.max(laenge(ecken[0],ecken[1]), laenge(ecken[3],ecken[2])));
+  let hoehe  = Math.round(Math.max(laenge(ecken[0],ecken[3]), laenge(ecken[1],ecken[2])));
+  const grenze = 1800;
+  if(Math.max(breite,hoehe) > grenze){
+    const f = grenze/Math.max(breite,hoehe);
+    breite = Math.round(breite*f); hoehe = Math.round(hoehe*f);
+  }
+  const h = abbildung(ecken, breite, hoehe);
+  if(!h) return null;
+  const [a,bb,c,d,e,f,g,i] = h;
+
+  const quelle = quelleLeinwand.getContext('2d')
+    .getImageData(0, 0, quelleLeinwand.width, quelleLeinwand.height);
+  const qb = quelle.width, qh = quelle.height, qd = quelle.data;
+
+  const ziel = document.createElement('canvas');
+  ziel.width = breite; ziel.height = hoehe;
+  const zielBild = ziel.getContext('2d').createImageData(breite, hoehe);
+  const zd = zielBild.data;
+
+  for(let v=0; v<hoehe; v++){
+    for(let u=0; u<breite; u++){
+      const nenner = g*u + i*v + 1;
+      const x = (a*u + bb*v + c)/nenner;
+      const y = (d*u + e*v + f)/nenner;
+      const p = (v*breite + u)*4;
+      if(x < 0 || y < 0 || x >= qb-1 || y >= qh-1){ zd[p]=zd[p+1]=zd[p+2]=255; zd[p+3]=255; continue; }
+      // bilinear abtasten
+      const x0 = x|0, y0 = y|0, fx = x-x0, fy = y-y0;
+      for(let k=0;k<3;k++){
+        const o = (y0*qb + x0)*4 + k;
+        const oben  = qd[o]*(1-fx) + qd[o+4]*fx;
+        const unten = qd[o+qb*4]*(1-fx) + qd[o+qb*4+4]*fx;
+        zd[p+k] = oben*(1-fy) + unten*fy;
+      }
+      zd[p+3] = 255;
+    }
+  }
+  ziel.getContext('2d').putImageData(zielBild, 0, 0);
+  return ziel;
+}
+
+/* ---------- Kamera ---------- */
+
 async function kameraOeffnen(){
   const fehler = $('krank-fehler'); fehler.textContent = '';
   try {
@@ -645,31 +807,118 @@ async function kameraOeffnen(){
   $('scan-bereich').innerHTML = `
     <div class="scanner">
       <video id="scan-video" playsinline muted></video>
-      <div class="scan-rahmen"></div>
-      <div class="scan-hinweis">Krankmeldung in den Rahmen legen und auslösen</div>
+      <canvas class="scan-umriss" id="scan-umriss"></canvas>
+      <div class="scan-hinweis" id="scan-hinweis">Blatt vollständig ins Bild halten</div>
     </div>
     <div class="scan-knoepfe">
-      <button class="knopf" type="button" id="scan-ausloesen">Aufnehmen</button>
+      <button class="knopf" type="button" id="scan-ausloesen">Jetzt aufnehmen</button>
+      <button class="knopf sekundaer" type="button" id="scan-auto">Automatik: an</button>
       <button class="knopf sekundaer" type="button" id="scan-abbrechen">Abbrechen</button>
     </div>`;
+
   const video = $('scan-video');
   video.srcObject = scanStrom;
   await video.play().catch(() => {});
-  $('scan-ausloesen').addEventListener('click', bildAufnehmen);
+
+  autoAufnahme = true;
+  $('scan-ausloesen').addEventListener('click', () => bildAufnehmen(letzteEcken));
   $('scan-abbrechen').addEventListener('click', () => { scannerStoppen(); scannerBereitstellen(); });
+  $('scan-auto').addEventListener('click', e => {
+    autoAufnahme = !autoAufnahme;
+    e.target.textContent = 'Automatik: ' + (autoAufnahme ? 'an' : 'aus');
+  });
+
+  sucheBlattLaufend();
 }
 
-async function bildAufnehmen(){
+function sucheBlattLaufend(){
+  const video = $('scan-video'), umriss = $('scan-umriss');
+  if(!video || !umriss || !scanStrom) return;
+
+  const klein = document.createElement('canvas');
+  const breite = 240;
+  let letzterLauf = 0;
+
+  const schritt = (zeit) => {
+    scanSchleife = requestAnimationFrame(schritt);
+    if(!video.videoWidth) return;
+    if(zeit - letzterLauf < 120) return;   // etwa 8 Pruefungen je Sekunde
+    letzterLauf = zeit;
+
+    const hoehe = Math.round(breite * video.videoHeight / video.videoWidth);
+    klein.width = breite; klein.height = hoehe;
+    const kctx = klein.getContext('2d', { willReadFrequently:true });
+    kctx.drawImage(video, 0, 0, breite, hoehe);
+    const gefunden = blattEcken(kctx.getImageData(0,0,breite,hoehe).data, breite, hoehe);
+
+    umriss.width = video.videoWidth; umriss.height = video.videoHeight;
+    const uctx = umriss.getContext('2d');
+    uctx.clearRect(0,0,umriss.width,umriss.height);
+
+    if(!gefunden){
+      letzteEcken = null; ruhigSeit = 0;
+      $('scan-hinweis').textContent = 'Blatt vollständig ins Bild halten';
+      return;
+    }
+
+    const faktor = video.videoWidth/breite;
+    const ecken = gefunden.map(([x,y]) => [x*faktor, y*faktor]);
+
+    // ruhig halten pruefen
+    if(letzteEcken){
+      const abstand = ecken.reduce((s,p,i) =>
+        s + Math.hypot(p[0]-letzteEcken[i][0], p[1]-letzteEcken[i][1]), 0) / 4;
+      if(abstand < video.videoWidth*0.012) ruhigSeit += 120; else ruhigSeit = 0;
+    }
+    letzteEcken = ecken;
+
+    const bereit = ruhigSeit >= 700;
+    uctx.lineWidth = Math.max(3, video.videoWidth/220);
+    uctx.strokeStyle = bereit ? '#48c25e' : '#F68712';
+    uctx.fillStyle = bereit ? 'rgba(72,194,94,.18)' : 'rgba(246,135,18,.14)';
+    uctx.beginPath();
+    uctx.moveTo(ecken[0][0], ecken[0][1]);
+    for(let i=1;i<4;i++) uctx.lineTo(ecken[i][0], ecken[i][1]);
+    uctx.closePath(); uctx.fill(); uctx.stroke();
+    ecken.forEach(([x,y]) => {
+      uctx.beginPath(); uctx.arc(x, y, uctx.lineWidth*1.8, 0, 7);
+      uctx.fillStyle = uctx.strokeStyle; uctx.fill();
+    });
+
+    $('scan-hinweis').textContent = bereit
+      ? (autoAufnahme ? 'Blatt erkannt – wird aufgenommen …' : 'Blatt erkannt – jetzt aufnehmen')
+      : 'Blatt erkannt – ruhig halten';
+
+    if(bereit && autoAufnahme){ bildAufnehmen(ecken); }
+  };
+  scanSchleife = requestAnimationFrame(schritt);
+}
+
+async function bildAufnehmen(ecken){
   const video = $('scan-video');
-  const leinwand = document.createElement('canvas');
-  leinwand.width = video.videoWidth || 1280;
-  leinwand.height = video.videoHeight || 960;
-  leinwand.getContext('2d').drawImage(video, 0, 0, leinwand.width, leinwand.height);
-  scanBlob = await new Promise(r => leinwand.toBlob(r, 'image/jpeg', 0.9));
+  if(!video) return;
+  if(scanSchleife){ cancelAnimationFrame(scanSchleife); scanSchleife = null; }
+
+  const voll = document.createElement('canvas');
+  voll.width = video.videoWidth || 1280;
+  voll.height = video.videoHeight || 960;
+  voll.getContext('2d', { willReadFrequently:true }).drawImage(video, 0, 0, voll.width, voll.height);
+
+  let ergebnis = null, zugeschnitten = false;
+  if(ecken){
+    ergebnis = entzerren(voll, ecken);
+    zugeschnitten = !!ergebnis;
+  }
+  if(!ergebnis) ergebnis = voll;
+
+  scanBlob = await new Promise(r => ergebnis.toBlob(r, 'image/jpeg', 0.92));
   scannerStoppen();
 
   $('scan-bereich').innerHTML = `
     <div class="scanner"><img id="scan-vorschau" src="${URL.createObjectURL(scanBlob)}" alt="Aufnahme"></div>
+    <p class="leer" style="margin:.7em 0 0">${zugeschnitten
+      ? 'Blatt erkannt, gerade gerückt und zugeschnitten.'
+      : 'Kein Blatt erkannt – es wurde das ganze Bild gespeichert.'}</p>
     <div class="scan-knoepfe">
       <button class="knopf" type="button" id="scan-verwenden">Diese Aufnahme verwenden</button>
       <button class="knopf sekundaer" type="button" id="scan-nochmal">Nochmal aufnehmen</button>
