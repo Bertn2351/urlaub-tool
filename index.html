@@ -704,15 +704,38 @@ function verfuegbarerUrlaub(bisIso){
 
 function zeigeUrlaubsgrenze(bisIso, beantragt){
   const el = $('an-konto'), knopf = $('an-knopf');
-  if(!el) return;
-  const frei = verfuegbarerUrlaub(bisIso);
-  const zuviel = beantragt > frei + 0.001;
-  el.classList.toggle('zuviel', zuviel);
-  el.innerHTML = `<span class="gross">${formatZahl(frei)}</span>
-    <span class="leer">Urlaubstage ${bisIso ? 'bis zum '+formatDatum(bisIso) : 'Stand heute'} verfügbar</span>
-    ${Number(meinKonto?.offen_urlaub) > 0 ? `<span class="leer">· ${formatZahl(meinKonto.offen_urlaub)} Tage bereits beantragt und offen</span>` : ''}
-    ${zuviel ? `<span style="color:var(--rot);font-weight:600">· ${formatZahl(beantragt-frei)} Tage zu viel</span>` : ''}`;
-  if(knopf) knopf.disabled = zuviel || beantragt <= 0;
+  if(!el || !meinKonto) return;
+
+  const heuteFrei = verfuegbarerUrlaub('');
+  const bisFrei = bisIso ? verfuegbarerUrlaub(bisIso) : heuteFrei;
+  const dazu = bisFrei - heuteFrei;
+  const danach = bisFrei - beantragt;
+  const minus = danach < -0.001;
+
+  const zeile = (text, wert, farbe) => `
+    <div style="display:flex;justify-content:space-between;gap:1.5em;padding:.3em 0">
+      <span class="leer">${text}</span>
+      <span class="zahl" style="font-weight:600${farbe ? ';color:'+farbe : ''}">${wert}</span></div>`;
+
+  el.classList.toggle('zuviel', minus);
+  el.style.display = 'block';
+  el.innerHTML = `
+    ${zeile('Dein Urlaubskonto heute', formatZahl(heuteFrei) + ' Tage')}
+    ${bisIso && Math.abs(dazu) > 0.01
+      ? zeile('Bis zum ' + formatDatum(bisIso) + ' kommt dazu', '+ ' + formatZahl(dazu) + ' Tage', 'var(--gruen)')
+      : ''}
+    ${bisIso ? zeile('Dann verfügbar', formatZahl(bisFrei) + ' Tage') : ''}
+    ${beantragt > 0 ? zeile('Dieser Antrag', '− ' + formatZahl(beantragt) + ' Tage', 'var(--rot)') : ''}
+    ${beantragt > 0 ? `<div style="border-top:1px solid var(--rand);margin-top:.4em;padding-top:.5em">
+        ${zeile('<strong>Nach dem Urlaub verbleiben</strong>', formatZahl(danach) + ' Tage',
+                minus ? 'var(--rot)' : 'var(--orange)')}</div>` : ''}
+    ${Number(meinKonto.offen_urlaub) > 0
+      ? `<p class="leer" style="margin:.6em 0 0;font-size:.82rem">${formatZahl(meinKonto.offen_urlaub)} Tage sind bereits beantragt und noch nicht entschieden – sie sind oben schon abgezogen.</p>` : ''}
+    ${minus ? `<p style="margin:.6em 0 0;font-size:.85rem;color:var(--rot);font-weight:600">
+        Damit gehst du um ${formatZahl(Math.abs(danach))} Tage ins Minus. Beantragen kannst du trotzdem –
+        die Verwaltung entscheidet darüber.</p>` : ''}`;
+
+  if(knopf) knopf.disabled = beantragt <= 0;
 }
 
 async function antragAbsenden(e){
@@ -721,7 +744,21 @@ async function antragAbsenden(e){
   const von = $('an-von').value, bis = $('an-bis').value;
   const werktage = werktageZaehlen(von, bis);
   if(werktage <= 0){ fehler.textContent = 'In diesem Zeitraum liegt kein Werktag.'; return; }
-  if(werktage > verfuegbarerUrlaub(bis) + 0.001){ fehler.textContent = 'Dafür reicht dein Urlaubskonto nicht.'; return; }
+
+  // Mehr beantragen als vorhanden ist erlaubt, aber nur nach ausdruecklicher Bestaetigung.
+  const danach = verfuegbarerUrlaub(bis) - werktage;
+  if(danach < -0.001){
+    const sicher = confirm(
+      `Achtung: Für diesen Zeitraum stehen dir ${formatZahl(verfuegbarerUrlaub(bis))} Tage zu, `
+      + `beantragt sind ${formatZahl(werktage)} Tage.\n\n`
+      + `Dein Konto wäre danach bei ${formatZahl(danach)} Tagen, also ${formatZahl(Math.abs(danach))} Tage im Minus.\n\n`
+      + `Das ist ein Urlaubsvorschuss: Du nimmst Urlaub, den du erst später erarbeitest. `
+      + `Die Verwaltung muss dem zustimmen, und bei einem Austritt vor Ablauf des Urlaubsjahres `
+      + `kann zu viel verbrauchter Urlaub rückverrechnet werden.\n\n`
+      + `Antrag trotzdem stellen?`);
+    if(!sicher) return;
+  }
+
   const { error } = await sb.from('abwesenheiten').insert({
     mitarbeiter_id: meinKonto.id, art:'Urlaub', von, bis, werktage,
     kommentar: $('an-kommentar').value.trim() || null, status:'offen' });
@@ -1269,7 +1306,7 @@ async function ladeAlleAntraege(){
           ? `<button class="knopf klein" data-ja="${a.id}">Genehmigen</button>
              <button class="knopf gefahr klein" data-nein="${a.id}">Ablehnen</button>`
           : `<button class="knopf sekundaer klein" data-loeschen="${a.id}">Löschen</button>`}
-        ${a.art==='Urlaub' ? `<button class="knopf sekundaer klein" data-bestaetigung="${a.id}">Bestätigung</button>` : ''}
+        <button class="knopf sekundaer klein" data-bestaetigung="${a.id}">PDF</button>
       </td></tr>`;
     }).join('')}</tbody></table></div>
     ${data.some(a => { const k = kontoNachAntrag(a); return k !== null && k < -0.001; })
@@ -1369,10 +1406,9 @@ function urlaubsbestaetigung(id){
     return `${formatDatum(d.toISOString().slice(0,10))}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} Uhr`;
   };
 
-  const arbeitnehmer = a.status === 'offen'
-    ? 'Antrag gestellt am ' + zeitstempel(a.erstellt_am)
-    : 'Elektronisch beantragt<br>' + esc(name) + (dienstnummer ? ', Dienstnummer ' + esc(dienstnummer) : '')
-      + '<br>' + zeitstempel(a.erstellt_am);
+  const arbeitnehmer = 'Elektronisch ' + (a.art === 'Krank' ? 'gemeldet' : 'beantragt')
+    + '<br>' + esc(name) + (dienstnummer ? ', Dienstnummer ' + esc(dienstnummer) : '')
+    + '<br>' + zeitstempel(a.erstellt_am);
 
   const arbeitgeber = a.status === 'genehmigt' && genehmiger
     ? 'Elektronisch genehmigt<br>' + esc(genehmiger.vollername)
@@ -1381,18 +1417,25 @@ function urlaubsbestaetigung(id){
     : a.status === 'genehmigt' ? 'Elektronisch genehmigt am ' + zeitstempel(a.bearbeitet_am)
     : '<em>noch nicht genehmigt</em>';
 
-  druckFenster('Urlaubsbestätigung ' + name, `
-  <h1>URLAUBSBESTÄTIGUNG</h1>
+  const titel = a.art === 'Urlaub' ? 'URLAUBSBESTÄTIGUNG'
+    : a.art === 'Krank' ? 'BESTÄTIGUNG KRANKENSTAND'
+    : 'ABWESENHEITSBESTÄTIGUNG';
+  const zeitraumWort = a.art === 'Urlaub' ? 'URLAUB' : a.art === 'Krank' ? 'KRANKENSTAND' : 'ABWESENHEIT';
+
+  druckFenster(titel.charAt(0) + titel.slice(1).toLowerCase() + ' ' + name, `
+  <h1>${titel}</h1>
 
   <div class="zeile" style="text-align:right">Datum: <span class="wert">${formatDatum(heuteIso())}</span></div>
 
   <div class="zeile">NAME: <span class="wert lang">${esc(name)}</span>
     &nbsp;&nbsp; Abteilung: <span class="wert">${esc(abteilung)}</span></div>
 
-  <div class="zeile">URLAUB für den Zeitraum von <span class="wert">${formatDatum(a.von)}</span>
+  <div class="zeile">${zeitraumWort} für den Zeitraum von <span class="wert">${formatDatum(a.von)}</span>
     bis <span class="wert">${formatDatum(a.bis)}</span></div>
 
-  <div class="zeile">Alternative: <span class="wert" style="min-width:19em">${esc(a.kommentar || '')}</span></div>
+  ${a.art === 'Urlaub'
+    ? `<div class="zeile">Alternative: <span class="wert" style="min-width:19em">${esc(a.kommentar || '')}</span></div>`
+    : a.kommentar ? `<div class="zeile">Anmerkung: <span class="wert" style="min-width:19em">${esc(a.kommentar)}</span></div>` : ''}
 
   <div class="zeile">Gesamt Werktage: <span class="wert">${formatZahl(a.werktage)}</span></div>
 
